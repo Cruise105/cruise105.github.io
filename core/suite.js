@@ -109,8 +109,9 @@ export function offer(t, opts = {}) {
 
 /** Google refused this pass (expired or revoked): stop handing it out. Leaves a newer one alone. */
 export function forget(value) {
+  if (!value) return;
   const t = read();
-  if (t && (!value || t.value === value)) write(null);
+  if (t && t.value === value) write(null);
 }
 
 /** For a status line: who's signed in across the suite and for how much longer. */
