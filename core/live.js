@@ -105,3 +105,41 @@ export function watch(table, path, cb) {
   });
   return () => { stopped = true; stop?.(); };
 }
+
+/* ====================================================================================================
+   Per-character live data. Each character has its own secret key (kept in their sheet file, so only that
+   player and the DM know it); everything for that character lives under c/<key>:
+     view        where the fight stands for them (combat tracker → sheet)
+     req         a turn button they tapped (sheet → combat tracker)
+     ops/<id>    HP changes (both ways; each has an id, so the Drive copy never counts twice)
+     stats       their sheet's numbers: HP, AC, Interrupt Point… (sheet → combat tracker)
+     sheet/<p>   any field of their sheet that changed (between the player's devices and the DM's)
+     ch/<name>   a channel from another app: sn (Session Notes), mi (Magic Items), boons, conds (combat
+                 tracker conditions) and whatever future apps add. Each is { fields: { …sheet fields }, t }.
+   ==================================================================================================== */
+export const newKey = newTableKey;
+const okKey = k => typeof k === 'string' && k.length >= 24;
+const cpath = (key, path) => `c/${key}${path ? `/${clean(path)}` : ''}`;
+
+/** Save (or with null, remove) a value for one character. */
+export async function cput(key, path, value) {
+  if (!okKey(key)) return false;
+  const c = await connect(); if (!c) return false;
+  try { await c.set(c.ref(c.db, cpath(key, path)), value ?? null); return true; } catch (e) { lastError = e.message; return false; }
+}
+/** Hear one character's value whenever it changes. Returns a stop function. */
+export function cwatch(key, path, cb) {
+  let stop = null, stopped = false;
+  if (okKey(key)) connect().then(c => {
+    if (!c || stopped) return;
+    stop = c.onValue(c.ref(c.db, cpath(key, path)), snap => cb(snap.val()), e => { lastError = e.message; });
+  });
+  return () => { stopped = true; stop?.(); };
+}
+/** An app's channel for one character: the sheet fields it shows there. */
+export function channel(key, name, fields) {
+  return cput(key, `ch/${name}`, { fields, t: Date.now() });
+}
+/** Sheet field paths can't go into Firebase keys as they are ("hp.max"); these swap them safely. */
+export const encPath = p => String(p).replace(/\./g, '~');
+export const decPath = p => String(p).replace(/~/g, '.');
