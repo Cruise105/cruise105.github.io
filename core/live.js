@@ -87,3 +87,21 @@ export function watchRequests(table, cb) {
   });
   return () => { stopped = true; stop?.(); };
 }
+
+/* ---------- general paths under a table (HP changes, conditions) ---------- */
+const clean = path => String(path || '').split('/').map(safe).join('/');
+/** Save (or with null, remove) a value under this table, e.g. put(t, `ops/${charId}/${opId}`, op). */
+export async function put(table, path, value) {
+  if (!okTable(table)) return false;
+  const c = await connect(); if (!c) return false;
+  try { await c.set(c.ref(c.db, `tables/${table}/${clean(path)}`), value ?? null); return true; } catch (e) { lastError = e.message; return false; }
+}
+/** Hear a value under this table whenever it changes. Returns a stop function. */
+export function watch(table, path, cb) {
+  let stop = null, stopped = false;
+  if (okTable(table)) connect().then(c => {
+    if (!c || stopped) return;
+    stop = c.onValue(c.ref(c.db, `tables/${table}/${clean(path)}`), snap => cb(snap.val()), e => { lastError = e.message; });
+  });
+  return () => { stopped = true; stop?.(); };
+}
