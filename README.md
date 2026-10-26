@@ -5,7 +5,7 @@ This repository is the front page of cruise105.github.io and the home of the **s
 ## Apps on this site
 
 - [Bestiary](https://cruise105.github.io/Bestiary/)
-- [Character Sheet](https://cruise105.github.io/Character-Sheet/)
+- [Character Sheet](https://cruise105.github.io/Char-Sheet/)
 - [Session Notes](https://cruise105.github.io/Session-Notes/)
 - [Magic Items](https://cruise105.github.io/Magic-Items/)
 
