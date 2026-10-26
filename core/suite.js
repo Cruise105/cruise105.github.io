@@ -11,7 +11,7 @@
 // Apps load this file with import('/core/suite.js') and carry on with their own sign-in if it can't load,
 // so the suite never becomes a single point of failure.
 
-export const VERSION = 1;
+export const VERSION = 2;
 export const CLIENT_ID = '150155066546-k6e9l4c0fbmel2tdfkv4c4gs41bqd847.apps.googleusercontent.com';
 export const SCOPES = {
   appdata: 'https://www.googleapis.com/auth/drive.appdata',
@@ -86,6 +86,23 @@ export async function share(r, opts = {}) {
     if (email && now && now.value === value) write({ ...now, email });
     remember(opts.app, email);
   } catch { /* offline: the email gets filled in by the next sign-in */ }
+}
+
+/**
+ * An app already holds a working pass of its own (from before the suite, or saved from an earlier visit).
+ * Share it too, but only when the suite has nothing better: no shared pass, or one that runs out sooner and
+ * carries no permission this one lacks. That way a pass with fewer permissions never pushes out a fuller one.
+ * Pass { value, exp, scope } with the permissions the app asked for.
+ */
+export function offer(t, opts = {}) {
+  if (!t || !t.value || !(t.exp > Date.now() + MARGIN)) return;
+  const cur = read();
+  if (cur && cur.value === t.value) return;
+  if (cur && cur.value && cur.exp > Date.now() + MARGIN) {
+    const mine = new Set(list(t.scope || opts.scope));
+    if (cur.exp >= t.exp || !list(cur.scopes).every(s => mine.has(s))) return;
+  }
+  return share({ value: t.value, exp: t.exp, scope: t.scope || opts.scope }, opts);
 }
 
 /** Google refused this pass (expired or revoked): stop handing it out. Leaves a newer one alone. */
