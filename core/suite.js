@@ -13,7 +13,7 @@
 // Apps load this file with import('/core/suite.js') and carry on with their own sign-in if it can't load,
 // so the suite never becomes a single point of failure.
 
-export const VERSION = 5;
+export const VERSION = 6;
 export const CLIENT_ID = '150155066546-k6e9l4c0fbmel2tdfkv4c4gs41bqd847.apps.googleusercontent.com';
 export const SCOPES = {
   appdata: 'https://www.googleapis.com/auth/drive.appdata',
@@ -180,7 +180,15 @@ export async function writeAppdata(token, name, data) {
 }
 
 /* ---------- campaigns ---------- */
-const emptySuite = () => ({ app: 'dmp-suite', v: 1, campaigns: [], current: { id: '', at: 0 } });
+const emptySuite = () => ({ app: 'dmp-suite', v: 1, campaigns: [], current: { id: '', at: 0 }, settings: {}, clock: {} });
+// Phase 3: table-wide settings (each { v, at }) and each campaign's in-game clock ({ now: minutes, at })
+export const SETTING_DEFAULTS = { spellMode: 'points', initiative: 'active', leveling: 'xp' };
+const newestOf = (x, y) => ((y?.at || 0) > (x?.at || 0) ? y : x);
+function mergeKeyed(a, b) {
+  const out = {};
+  for (const k of new Set([...Object.keys(a || {}), ...Object.keys(b || {})])) { const v = newestOf(a?.[k], b?.[k]); if (v) out[k] = { ...v }; }
+  return out;
+}
 // Newest edit wins, record by record, so two devices never undo each other's changes
 function mergeSuite(a, b) {
   const out = emptySuite();
@@ -193,6 +201,8 @@ function mergeSuite(a, b) {
   out.campaigns = [...byId.values()];
   const ca = a?.current || {}, cb = b?.current || {};
   out.current = (cb.at || 0) > (ca.at || 0) ? { id: cb.id || '', at: cb.at || 0 } : { id: ca.id || '', at: ca.at || 0 };
+  out.settings = mergeKeyed(a?.settings, b?.settings);
+  out.clock = mergeKeyed(a?.clock, b?.clock);
   return out;
 }
 function tidy(s) {
@@ -221,14 +231,18 @@ export async function loadSuite(token) {
 }
 
 /**
- * Change the campaign list or switch the current campaign, for every app.
- * patch: { campaigns: [{ id, name, deleted }], current: 'campaign id' }
+ * Change the campaign list, switch the current campaign, change table settings or a campaign's clock, for every app.
+ * patch: { campaigns: [{ id, name, deleted }], current: 'campaign id',
+ *          settings: { spellMode: 'points', initiative: 'active', leveling: 'xp' }, clock: { [campaignId]: minutes } }
+ * settingsAt: when those settings were really chosen (default now), so an older choice never beats a newer one.
  */
 export async function saveSuite(token, patch = {}) {
   const now = Date.now();
   const mine = emptySuite();
   mine.campaigns = (patch.campaigns || []).map(c => ({ ...c, updatedAt: c.updatedAt || now }));
   if (patch.current) mine.current = { id: patch.current, at: now };
+  for (const [k, v] of Object.entries(patch.settings || {})) mine.settings[k] = { v, at: patch.settingsAt || now };
+  for (const [id, m] of Object.entries(patch.clock || {})) mine.clock[id] = { now: Number(m) || 0, at: now };
   // Offline: keep the change on this device; it goes up with the next save that reaches Drive
   const local = tidy(mergeSuite(cacheGet(SUITE_CACHE), mine));
   cacheSet(SUITE_CACHE, local);
@@ -237,6 +251,20 @@ export async function saveSuite(token, patch = {}) {
   await writeAppdata(token, SUITE_FILE, merged);
   cacheSet(SUITE_CACHE, merged);
   return merged;
+}
+
+/** The table's settings (spell points or slots, Active or standard initiative, XP or milestone), with when each was set. */
+export function tableSettings() {
+  const st = cachedSuite().settings || {};
+  const out = { ...SETTING_DEFAULTS, at: {} };
+  for (const k of Object.keys(SETTING_DEFAULTS)) if (st[k]) { out[k] = st[k].v; out.at[k] = st[k].at || 0; }
+  return out;
+}
+/** A campaign's in-game time, in minutes (the current campaign if none is given), or null if not known yet. */
+export function campaignClock(campaignId) {
+  const id = campaignId || currentCampaign()?.id || '';
+  const c = cachedSuite().clock?.[id];
+  return c ? c.now : null;
 }
 
 /** What this device last knew, without going to Drive. */
