@@ -4,10 +4,10 @@ This repository is the front page of cruise105.github.io and the home of the **s
 
 ## Apps on this site
 
-- [Bestiary](https://cruise105.github.io/bestiary/)
-- [Character Sheet](https://cruise105.github.io/character-sheet/)
-- [Session Notes](https://cruise105.github.io/session-notes/)
-- [Magic Items](https://cruise105.github.io/magic-items/)
+- [Bestiary](https://cruise105.github.io/Bestiary/)
+- [Character Sheet](https://cruise105.github.io/Character-Sheet/)
+- [Session Notes](https://cruise105.github.io/Session-Notes/)
+- [Magic Items](https://cruise105.github.io/Magic-Items/)
 
 ## Suite core (`core/suite.js`)
 
