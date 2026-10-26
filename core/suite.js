@@ -13,7 +13,7 @@
 // Apps load this file with import('/core/suite.js') and carry on with their own sign-in if it can't load,
 // so the suite never becomes a single point of failure.
 
-export const VERSION = 3;
+export const VERSION = 4;
 export const CLIENT_ID = '150155066546-k6e9l4c0fbmel2tdfkv4c4gs41bqd847.apps.googleusercontent.com';
 export const SCOPES = {
   appdata: 'https://www.googleapis.com/auth/drive.appdata',
@@ -258,4 +258,12 @@ export function cachedParty() { return cacheGet(PARTY_CACHE)?.chars || []; }
 export function party(campaignId) {
   const id = campaignId || currentCampaign()?.id || '';
   return cachedParty().filter(c => c.campaignId === id);
+}
+
+/* ---------- live link (phase 3) ---------- */
+/** The live link for fights (Firebase), loaded only when an app needs it; null if it can't load. */
+let liveMod = null;
+export function live() {
+  if (!liveMod) liveMod = import('/core/live.js').catch(() => { liveMod = null; return null; });
+  return liveMod;
 }
