@@ -302,3 +302,6 @@ export function views() {
   if (!viewsMod) viewsMod = import('/core/views.js').catch(() => { viewsMod = null; return null; });
   return viewsMod;
 }
+
+// Diagnostics: with #livelog in the address, connect the live link straight away so its log box shows up
+if (typeof location !== 'undefined' && /livelog/.test(location.hash)) live().then(L => L?.connect());
