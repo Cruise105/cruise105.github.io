@@ -100,6 +100,17 @@ export async function playerEmails(token, id = current()?.id) {
   const c = await db(token);
   return Object.values((await val(c, `tables/${id}/members`)) || {}).filter(m => m.status === 'approved' && m.email).map(m => ({ email: m.email, name: m.name || '' }));
 }
+/* ---------- the magic item catalog players can browse (Magic Items publishes it; no prices, no DM notes) ----------
+   tables/<id>/catalog/items/<key>  { n: name, ty: type, r: rarity, a: attunement line, w: weight, s: source, d: description }
+   tables/<id>/catalog/meta         { t, count, sources: { key: name } }
+   Only the DM can write it; only the DM and approved players can read it. */
+/** A safe database key for an item id ("srd:bag-of-holding", "custom:x1y2"). */
+export const itemKey = id => encodeURIComponent(String(id)).replace(/\./g, '%2E');
+/** DM: change part of the catalog at once: { 'items/<key>': value or null, meta: {…} }. */
+export async function updateCatalog(token, id, patch) { const c = await db(token); await c.D.update(c.ref(c.db, `tables/${id}/catalog`), patch); }
+/** Player (or DM): the whole catalog, { items: { key: item }, meta }, or null if the DM hasn't shared one yet. */
+export async function catalog(token, id = current()?.id) { const c = await db(token); return val(c, `tables/${id}/catalog`); }
+
 /** Player: leave a table. DM: forget it on this account (the table itself stays for its players). */
 export async function leave(token, id) {
   const c = await db(token);

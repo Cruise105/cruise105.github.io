@@ -156,8 +156,8 @@ const APPS = [
   { id: 'bestiary', name: 'Bestiary', what: 'Monsters and the combat tracker', href: '/Bestiary/' },
   { id: 'sheet', name: 'Character Sheet', what: 'Character sheets and the table library', href: '/Char-Sheet/', player: true },
   { id: 'notes', name: 'Session Notes', what: 'The clock, weather, health and downtime', href: '/Session-Notes/' },
-  { id: 'items', name: 'Magic Items', what: 'Who carries what, and attunement', href: '/Magic-Items/' },
-  { id: 'shops', name: 'Shops', what: 'Stock that restocks each in-game month', soon: true },
+  { id: 'items', name: 'Magic Items', what: 'Who carries what, and attunement', playerWhat: 'Browse the magic items of the world', href: '/Magic-Items/', player: true },
+  { id: 'shops', name: 'Shops', what: 'Stock that restocks each in-game month', playerWhat: 'Buy and sell at the shops', soon: true, player: true },
   { id: 'lore', name: 'Lore', what: 'Your world, for your players to explore', soon: true, player: true },
 ];
 // a d20 seen head-on: hexagon outline, the center face and the facets around it, in the logo's blue-to-teal
@@ -170,7 +170,7 @@ const die = id => `<span class="die"><svg viewBox="0 0 112 128" aria-hidden="tru
 // Players at someone else's table only see the player apps; a DM (or anyone without a table yet) sees them all
 function renderApps() {
   const player = core.tableRole() === 'player';
-  document.getElementById('apps').innerHTML = APPS.filter(a => !player || a.player).map(a => a.soon
+  document.getElementById('apps').innerHTML = APPS.filter(a => !player || a.player).map(a => ({ ...a, what: player && a.playerWhat ? a.playerWhat : a.what })).map(a => a.soon
   ? `<li><div class="app soon">${die(a.id)}<span class="name">${a.name}</span><span class="what">${a.what}</span><span class="soonlbl">Coming later</span></div></li>`
   // each app opens in its own window (its installed app window, if it's installed), so the launcher stays put
   : `<li><a class="app" href="${a.href}" target="_blank" rel="noopener">${die(a.id)}<span class="name">${a.name}</span><span class="what">${a.what}</span></a></li>`).join('');
