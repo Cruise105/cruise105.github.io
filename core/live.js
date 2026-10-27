@@ -19,6 +19,24 @@ let ready = null;   // the connection, once (or while) it's being made
 let fb = null;      // { db, ref, set, onValue }
 let lastError = '';
 
+/* ---------- diagnostics: add #livelog to an app's address to see what the live link sends and receives ---------- */
+const logLines = [];
+let logBox = null;
+function log(kind, path, detail = '') {
+  const t = new Date();
+  logLines.push(`${t.toLocaleTimeString([], { hour12: false })}.${String(t.getMilliseconds()).padStart(3, '0')}  ${kind.padEnd(5)} ${path}${detail ? `  ${detail}` : ''}`);
+  if (logLines.length > 60) logLines.shift();
+  if (!logBox && typeof location !== 'undefined' && /livelog/.test(location.hash) && typeof document !== 'undefined') {
+    logBox = document.createElement('pre');
+    logBox.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;max-height:40vh;overflow:auto;z-index:99999;margin:0;padding:8px;'
+      + 'background:rgba(0,0,0,.88);color:#9f9;font:11px/1.35 monospace;border:1px solid #4a4;border-radius:6px;white-space:pre-wrap;pointer-events:auto';
+    document.body.append(logBox);
+  }
+  if (logBox) { logBox.textContent = logLines.join('\n'); logBox.scrollTop = logBox.scrollHeight; }
+}
+export const logText = () => logLines.join('\n');
+const short = k => String(k).slice(0, 4);
+
 const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${what} took too long`)), ms))]);
 
 /** Connect (once per page). Resolves to the connection, or null if Firebase can't be reached right now. */
@@ -35,9 +53,11 @@ export function connect() {
       if (!auth.currentUser) await withTimeout(U.signInAnonymously(auth), 15000, 'Connecting to Firebase');
       fb = { db: D.getDatabase(app), ref: D.ref, set: D.set, onValue: D.onValue, D };
       lastError = '';
+      log('ready', 'connected to Firebase');
       return fb;
     } catch (e) {
       lastError = e?.message || String(e);
+      log('FAIL', 'connect', lastError);
       ready = null; // try again next time it's asked for
       return null;
     }
@@ -72,16 +92,22 @@ const cpath = (key, path) => `c/${key}${path ? `/${clean(path)}` : ''}`;
 
 /** Save (or with null, remove) a value for one character. */
 export async function cput(key, path, value) {
-  if (!okKey(key)) return false;
+  if (!okKey(key)) { log('FAIL', `send ${path}`, 'no character key'); return false; }
   const c = await connect(); if (!c) return false;
-  try { await c.set(c.ref(c.db, cpath(key, path)), value ?? null); return true; } catch (e) { lastError = e.message; return false; }
+  const t0 = Date.now();
+  try { await c.set(c.ref(c.db, cpath(key, path)), value ?? null); log('sent', `${short(key)}…/${path}`, `${Date.now() - t0} ms`); return true; }
+  catch (e) { lastError = e.message; log('FAIL', `send ${short(key)}…/${path}`, e.message); return false; }
 }
 /** Hear one character's value whenever it changes. Returns a stop function. */
 export function cwatch(key, path, cb) {
   let stop = null, stopped = false;
   if (okKey(key)) connect().then(c => {
     if (!c || stopped) return;
-    stop = c.onValue(c.ref(c.db, cpath(key, path)), snap => cb(snap.val()), e => { lastError = e.message; });
+    log('watch', `${short(key)}…/${path}`);
+    stop = c.onValue(c.ref(c.db, cpath(key, path)), snap => {
+      log('got', `${short(key)}…/${path}`);
+      try { cb(snap.val()); } catch (e) { log('ERROR', `handling ${short(key)}…/${path}`, e?.message || String(e)); console.error(e); }
+    }, e => { lastError = e.message; log('FAIL', `watch ${short(key)}…/${path}`, e.message); });
   });
   return () => { stopped = true; stop?.(); };
 }
