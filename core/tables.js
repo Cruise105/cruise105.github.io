@@ -141,6 +141,16 @@ export async function updateCatalog(token, id, patch) { const c = await db(token
 /** Player (or DM): the whole catalog, { items: { key: item }, meta }, or null if the DM hasn't shared one yet. */
 export async function catalog(token, id = current()?.id) { const c = await db(token); return val(c, `tables/${id}/catalog`); }
 
+/** DM: delete a table for good (its players, invites and shared-sheet notes go with it). */
+export async function deleteTable(token, id) {
+  const c = await db(token);
+  const info = await val(c, `tables/${id}/info`);
+  if (info && info.dm !== me.uid) throw new Error('Only the DM can delete a table.');
+  await c.set(c.ref(c.db, `tables/${id}`), null);
+  await c.set(c.ref(c.db, `users/${me.uid}/tables/${id}`), null);
+  if (current()?.id === id) choose(null);
+}
+
 /** Player: leave a table. DM: forget it on this account (the table itself stays for its players). */
 export async function leave(token, id) {
   const c = await db(token);

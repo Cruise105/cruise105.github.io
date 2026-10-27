@@ -72,6 +72,9 @@ h1 { font: 800 clamp(34px, 6vw, 52px)/1.05 var(--serif); letter-spacing: .01em; 
 .tablebox select, .tablebox input { font: 500 16px/1.2 var(--sans); color: var(--bone); background: rgba(0, 0, 0, .6); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; min-height: 42px; max-width: 100%; }
 .tablebox input.grow { width: 100%; }
 .tablebox button.primary { border-color: var(--die-b); }
+.tablebox button.danger { border-color: #a33; color: #f99; }
+.tablebox .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.tablebox .seg button[aria-pressed="true"] { border-color: var(--die-b); background: rgba(43, 134, 212, .25); }
 .badge { font-size: 13px; color: var(--ash); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
 .badge.dm { color: var(--ember); border-color: var(--ember); }
 .people { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
@@ -317,7 +320,14 @@ function renderTable(t, cur) {
   box(`<h2>Your table</h2>${head}
     <div class="trow"><button type="button" class="primary" id="tabInvite">Invite a player</button><button type="button" id="tabNew">New table</button></div>
     <div id="tabLink">${inviteLink ? linkRow(inviteLink) : ''}</div>
-    <ul class="people" id="tabPeople"><li><small>Loading players…</small></li></ul>`);
+    <ul class="people" id="tabPeople"><li><small>Loading players…</small></li></ul>
+    <h2 style="margin-top:14px">Table Rules</h2><div id="tabRules">${rulesHtml()}</div>
+    <div class="trow" style="margin-top:12px"><button type="button" id="tabDelete" class="danger">Delete this table</button></div>`);
+  bindRules(t);
+  $('tabDelete').onclick = async () => {
+    if (!confirm(`Delete ${cur.name}? Its players lose their place at it and every invite link stops working. This can't be undone. (Characters and campaigns in your Drive stay.)`)) return;
+    try { await T.deleteTable(t, cur.id); inviteLink = ''; note(`${cur.name} is deleted.`); showTables(); } catch (e) { note(e.message); }
+  };
   bindPicker(t);
   $('tabInvite').onclick = async () => {
     try { inviteLink = await T.invite(t, cur.id); $('tabLink').innerHTML = linkRow(inviteLink); bindCopy(); copy(inviteLink); }
@@ -341,6 +351,26 @@ function renderTable(t, cur) {
       } catch (err) { note(err.message); }
     };
   });
+}
+// The table's rules, for every app: the edition and the Table Rules switches (saved with your campaigns in your Drive)
+const RULES = [
+  ['edition', 'Rules', [['2014', '2014 (SRD 5.1)'], ['2024', '2024 (SRD 5.2)']]],
+  ['spellMode', 'Spellcasting', [['slots', 'Spell slots'], ['points', 'Spell points']]],
+  ['initiative', 'Initiative', [['standard', 'Standard'], ['active', 'Active Initiative']]],
+  ['leveling', 'Leveling', [['xp', 'Experience points'], ['milestone', 'Milestone']]],
+];
+function rulesHtml() {
+  const s = core.tableSettings ? core.tableSettings() : {};
+  return RULES.map(([k, label, opts]) => `<div class="trow"><span class="grow">${label}</span><span class="seg">${opts.map(([v, n]) => `<button type="button" data-rule="${k}" data-v="${v}" aria-pressed="${(s[k] || opts[0][0]) === v}">${n}</button>`).join('')}</span></div>`).join('')
+    + '<p>Every app follows these: the Character Sheet, the Bestiary, Session Notes. The first value in each row is the rules as written.</p>';
+}
+function bindRules(t) {
+  const el = $('tabRules'); if (!el) return;
+  el.onclick = async e => {
+    const b = e.target.closest('[data-rule]'); if (!b) return;
+    try { await core.saveSuite(t, { settings: { [b.dataset.rule]: b.dataset.v } }); el.innerHTML = rulesHtml(); note('Saved. Each app picks it up the next time it syncs.'); }
+    catch (err) { note(`Couldn't save that: ${err.message}`); }
+  };
 }
 const linkRow = l => `<div class="trow"><input class="grow" id="tabLinkText" readonly value="${esc(l)}" aria-label="Invite link"><button type="button" id="tabCopy">Copy</button></div><p>Send this link to a player. When they open it and sign in, they show up here for you to approve. A forwarded link can't get anyone in without your approval.</p>`;
 function bindCopy() { if ($('tabCopy')) $('tabCopy').onclick = () => copy($('tabLinkText').value); }
