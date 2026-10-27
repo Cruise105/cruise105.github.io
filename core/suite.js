@@ -13,7 +13,7 @@
 // Apps load this file with import('/core/suite.js') and carry on with their own sign-in if it can't load,
 // so the suite never becomes a single point of failure.
 
-export const VERSION = 9;
+export const VERSION = 10;
 export const CLIENT_ID = '150155066546-k6e9l4c0fbmel2tdfkv4c4gs41bqd847.apps.googleusercontent.com';
 export const SCOPES = {
   appdata: 'https://www.googleapis.com/auth/drive.appdata',
@@ -167,7 +167,7 @@ export async function signInLong(scope, opts = {}) {
   if (!KEEPER) throw new Error('The sign-in keeper is not set up.');
   await loadGis();
   const have = list(read()?.scopes);
-  const want = [...new Set([...list(scope), ...have])].join(' ');
+  const want = [...new Set([...list(scope), ...list('openid email'), ...have])].join(' ');
   let out = await keeper('/exchange', { code: await askCode(want, opts.prompt) });
   // Google only hands out the long-term key on a full consent; ask once more if it didn't
   if (!out.key && !keeperKey()) out = await keeper('/exchange', { code: await askCode(want, 'consent') });
@@ -399,3 +399,16 @@ export function views() {
 
 // Diagnostics: with #livelog in the address, connect the live link straight away so its log box shows up
 if (typeof location !== 'undefined' && /livelog/.test(location.hash)) live().then(L => L?.connect());
+
+/* ---------- tables (who plays together, and who's the DM) ---------- */
+let tablesMod = null;
+/** The tables module (create, invite, join, approve…), loaded when needed; null if it can't load. */
+export function tables() {
+  if (!tablesMod) tablesMod = import('/core/tables.js').catch(() => { tablesMod = null; return null; });
+  return tablesMod;
+}
+/** This device's role at its current table, at once and offline: 'dm', 'player' or '' (no table chosen yet). */
+export function tableRole() { try { return JSON.parse(localStorage.getItem('dmp-suite-table') || 'null')?.role || ''; } catch { return ''; } }
+export function currentTable() { try { return JSON.parse(localStorage.getItem('dmp-suite-table') || 'null'); } catch { return null; } }
+// Signing in also asks for your email address (openid email), so tables know who you are
+export const IDENTITY = 'openid email';

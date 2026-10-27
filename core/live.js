@@ -50,8 +50,9 @@ export function connect() {
       ]), 15000, 'Loading Firebase');
       const app = A.getApps().find(a => a.name === 'dmp') || A.initializeApp(CONFIG, 'dmp');
       const auth = U.getAuth(app);
+      if (auth.authStateReady) await withTimeout(auth.authStateReady(), 10000, 'Restoring the sign-in');
       if (!auth.currentUser) await withTimeout(U.signInAnonymously(auth), 15000, 'Connecting to Firebase');
-      fb = { db: D.getDatabase(app), ref: D.ref, set: D.set, onValue: D.onValue, onChildAdded: D.onChildAdded, onChildChanged: D.onChildChanged, D };
+      fb = { db: D.getDatabase(app), ref: D.ref, set: D.set, onValue: D.onValue, onChildAdded: D.onChildAdded, onChildChanged: D.onChildChanged, D, U, auth };
       lastError = '';
       log('ready', 'connected to Firebase');
       return fb;
@@ -65,6 +66,33 @@ export function connect() {
   return ready;
 }
 export const error = () => lastError;
+
+/**
+ * Sign in to the live link as this Google account (tables need a real identity; character channels work either
+ * way). accessToken: a Google pass that includes the email permission. Resolves to { uid, email } or null.
+ */
+export async function identify(accessToken) {
+  const c = await connect(); if (!c) return null;
+  const u = c.auth.currentUser;
+  if (u && !u.isAnonymous) return { uid: u.uid, email: u.email || '' };
+  if (!accessToken) return null;
+  try {
+    const cred = c.U.GoogleAuthProvider.credential(null, accessToken);
+    const r = await withTimeout(c.U.signInWithCredential(c.auth, cred), 15000, 'Signing in to the live link');
+    log('ready', 'signed in as a Google account');
+    return { uid: r.user.uid, email: r.user.email || '' };
+  } catch (e) { lastError = e?.message || String(e); log('FAIL', 'identify', lastError); return null; }
+}
+/** Who the live link knows this device as: { uid, email, google } or null. */
+export function who() {
+  const u = fb?.auth?.currentUser;
+  return u ? { uid: u.uid, email: u.email || '', google: !u.isAnonymous } : null;
+}
+/** Leave the live link's Google sign-in on this device (character channels carry on anonymously). */
+export async function forgetIdentity() {
+  const c = await connect(); if (!c) return;
+  try { await c.U.signOut(c.auth); await c.U.signInAnonymously(c.auth); } catch { /* */ }
+}
 export const connected = () => !!fb;
 
 /** A new secret key for a character: 32 random letters and digits. */

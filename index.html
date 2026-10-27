@@ -64,6 +64,20 @@ h1 { font: 800 clamp(34px, 6vw, 52px)/1.05 var(--serif); letter-spacing: .01em; 
   background-image: linear-gradient(45deg, transparent 50%, var(--ember) 50%), linear-gradient(135deg, var(--ember) 50%, transparent 50%);
   background-position: calc(100% - 17px) 18px, calc(100% - 12px) 18px; background-size: 5px 5px; background-repeat: no-repeat;
 }
+.tablebox { max-width: 560px; margin: 18px auto 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: rgba(0, 0, 0, .45); text-align: left; }
+.tablebox h2 { font: 800 19px/1.2 var(--serif); margin: 0 0 8px; }
+.tablebox p { margin: 6px 0; color: var(--ash); font-size: 15px; }
+.trow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 8px 0; }
+.trow .grow { flex: 1 1 160px; min-width: 0; }
+.tablebox select, .tablebox input { font: 500 16px/1.2 var(--sans); color: var(--bone); background: rgba(0, 0, 0, .6); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; min-height: 42px; max-width: 100%; }
+.tablebox input.grow { width: 100%; }
+.tablebox button.primary { border-color: var(--die-b); }
+.badge { font-size: 13px; color: var(--ash); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+.badge.dm { color: var(--ember); border-color: var(--ember); }
+.people { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.people li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.people li .grow { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+.people small { color: var(--ash); }
 .note { min-height: 1.5em; margin: 8px 16px 0; text-align: center; color: var(--ash); font-size: 15px; }
 
 /* The apps sit on the table as dice: each a d20 face seen head-on, its symbol in silhouette like the party in the logo */
@@ -111,6 +125,7 @@ footer { text-align: center; color: var(--ash); font-size: 14px; padding: 0 16px
       <label for="campSel">Playing</label>
       <select id="campSel"></select>
     </div>
+    <div class="tablebox" id="tablebox" hidden></div>
     <p class="note" id="note" role="status"></p>
   </section>
 
@@ -139,11 +154,11 @@ const GLYPHS = {
 };
 const APPS = [
   { id: 'bestiary', name: 'Bestiary', what: 'Monsters and the combat tracker', href: '/Bestiary/' },
-  { id: 'sheet', name: 'Character Sheet', what: "Your players' sheets and the table library", href: '/Char-Sheet/' },
+  { id: 'sheet', name: 'Character Sheet', what: 'Character sheets and the table library', href: '/Char-Sheet/', player: true },
   { id: 'notes', name: 'Session Notes', what: 'The clock, weather, health and downtime', href: '/Session-Notes/' },
   { id: 'items', name: 'Magic Items', what: 'Who carries what, and attunement', href: '/Magic-Items/' },
   { id: 'shops', name: 'Shops', what: 'Stock that restocks each in-game month', soon: true },
-  { id: 'lore', name: 'Lore', what: 'Omnithel for your players to explore', soon: true },
+  { id: 'lore', name: 'Lore', what: 'Your world, for your players to explore', soon: true, player: true },
 ];
 // a d20 seen head-on: hexagon outline, the center face and the facets around it, in the logo's blue-to-teal
 const die = id => `<span class="die"><svg viewBox="0 0 112 128" aria-hidden="true">
@@ -152,13 +167,19 @@ const die = id => `<span class="die"><svg viewBox="0 0 112 128" aria-hidden="tru
   <path class="edge" d="M56,24 L94,88 L18,88 Z M56,2 L56,24 M110,33 L56,24 M2,33 L56,24 M110,33 L94,88 M2,33 L18,88 M110,95 L94,88 M2,95 L18,88 M56,126 L94,88 M56,126 L18,88"/>
   <polygon class="rim" points="56,2 110,33 110,95 56,126 2,95 2,33"/>
   <path class="glyph" fill-rule="evenodd" d="${GLYPHS[id]}"/></svg></span>`;
-document.getElementById('apps').innerHTML = APPS.map(a => a.soon
+// Players at someone else's table only see the player apps; a DM (or anyone without a table yet) sees them all
+function renderApps() {
+  const player = core.tableRole() === 'player';
+  document.getElementById('apps').innerHTML = APPS.filter(a => !player || a.player).map(a => a.soon
   ? `<li><div class="app soon">${die(a.id)}<span class="name">${a.name}</span><span class="what">${a.what}</span><span class="soonlbl">Coming later</span></div></li>`
   // each app opens in its own window (its installed app window, if it's installed), so the launcher stays put
   : `<li><a class="app" href="${a.href}" target="_blank" rel="noopener">${die(a.id)}<span class="name">${a.name}</span><span class="what">${a.what}</span></a></li>`).join('');
+}
+renderApps();
 
 // ---------- one sign-in for every app ----------
 const NEED = [core.SCOPES.appdata, core.SCOPES.file];
+const ASK = [...NEED, core.IDENTITY || ''].join(' ').trim(); // plus your email, so tables know who you are
 const $ = id => document.getElementById(id);
 const note = t => { $('note').textContent = t || ''; };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -180,14 +201,14 @@ async function signIn() {
       try {
         await core.signInLong(NEED.join(' '), { app: 'launcher' });
         note(core.staysSignedIn() ? 'Signed in. You stay signed in on this device, in every app.' : 'Signed in for an hour (staying signed in needs this browser to allow saving data).');
-        await showCampaigns(); showWho(); return;
+        await showCampaigns(); showWho(); showTables(); return;
       } catch (e) { if (/closed before/.test(e.message)) throw e; console.warn('key keeper', e); }
     }
     await loadGis();
     await new Promise((resolve, reject) => {
       let before = false; try { before = localStorage.getItem('dmp-launcher-signed') === '1'; } catch { /* */ }
       const client = google.accounts.oauth2.initTokenClient({
-        client_id: core.CLIENT_ID, scope: NEED.join(' '),
+        client_id: core.CLIENT_ID, scope: ASK,
         callback: async r => {
           if (r.error) return reject(new Error(r.error_description || r.error));
           await core.share(r, { app: 'launcher' });
@@ -199,7 +220,7 @@ async function signIn() {
       client.requestAccessToken({ prompt: before ? '' : 'consent' });
     });
     note('Signed in. Every app on this device will use it.');
-    await showCampaigns();
+    await showCampaigns(); showTables();
   } catch (e) { note(e.message); }
   showWho();
 }
@@ -213,14 +234,14 @@ function showWho() {
     : `<button type="button" id="signIn">Sign in with Google</button>`;
   if ($('signIn')) $('signIn').onclick = signIn;
   if ($('signOut')) $('signOut').onclick = async () => {
-    await core.signOutLong(); note('Signed out on this device. Every app here will ask you to sign in again.'); showWho();
+    await core.signOutLong(); (await core.tables())?.choose(null); note('Signed out on this device. Every app here will ask you to sign in again.'); showWho(); showTables(); renderApps();
   };
 }
 
 // ---------- the current campaign, for every app ----------
 function renderCampaigns() {
   const list = core.campaigns(), cur = core.currentCampaign();
-  $('campaign').hidden = !list.length;
+  $('campaign').hidden = !list.length || core.tableRole() === 'player'; // the campaign is the DM's to choose
   $('campSel').innerHTML = list.map(c => `<option value="${esc(c.id)}"${cur?.id === c.id ? ' selected' : ''}>${esc(c.name || 'Unnamed campaign')}</option>`).join('');
 }
 async function showCampaigns() {
@@ -243,11 +264,113 @@ $('campSel').addEventListener('change', async e => {
   } catch (err) { note(`Couldn't switch campaigns: ${err.message}`); renderCampaigns(); }
 });
 
+// ---------- tables: who plays together, and who's the DM ----------
+// An invite link (?join=<table>~<code>) is remembered until you've signed in and answered it
+const JOIN = 'dmp-join';
+(() => { const j = new URLSearchParams(location.search).get('join'); if (j) { try { sessionStorage.setItem(JOIN, j); } catch { /* */ } history.replaceState(null, '', '/'); } })();
+const pendingJoin = () => { try { return sessionStorage.getItem(JOIN) || ''; } catch { return ''; } };
+let T = null, tabs = [], stopMembers = null, inviteLink = '';
+const box = html => { $('tablebox').innerHTML = html; $('tablebox').hidden = !html; };
+async function showTables() {
+  const t = token();
+  if (!t) { box(pendingJoin() ? '<h2>You were invited to a table</h2><p>Sign in with Google (top right) to ask to join.</p>' : ''); return; }
+  T = T || await core.tables();
+  if (!T) { box(''); return; }
+  try {
+    const j = pendingJoin();
+    if (j) return showJoin(t, j);
+    tabs = await T.mine(t);
+    let cur = T.current();
+    if (cur && !tabs.some(x => x.id === cur.id)) { T.choose(null); cur = null; }
+    if (!cur && tabs.length) { const first = tabs.find(x => x.status === 'approved') || tabs[0]; T.choose(first); cur = T.current(); }
+    else if (cur) { const f = tabs.find(x => x.id === cur.id); if (f && (f.status !== cur.status || f.name !== cur.name)) { T.choose(f); cur = T.current(); } }
+    renderApps(); renderCampaigns();
+    renderTable(t, cur);
+  } catch (e) { box(`<h2>Tables</h2><p>${esc(e.message)}</p>`); }
+}
+function tablePicker(cur) {
+  if (tabs.length < 2) return `<b>${esc(cur.name)}</b>`;
+  return `<select id="tabSel" aria-label="Table">${tabs.map(x => `<option value="${esc(x.id)}"${x.id === cur.id ? ' selected' : ''}>${esc(x.name)}${x.role === 'dm' ? ' (your table)' : ''}</option>`).join('')}</select>`;
+}
+function renderTable(t, cur) {
+  stopMembers?.(); stopMembers = null;
+  if (!cur) {
+    box(`<h2>Your table</h2>
+      <p>Running a game? Create a table, then send your players an invite link. Playing at someone else's table? Ask your DM for their invite link.</p>
+      <div class="trow"><input class="grow" id="tabName" placeholder="Table name, like Thursday Night Crew" autocomplete="off"><button type="button" class="primary" id="tabCreate">Create a table</button></div>`);
+    $('tabCreate').onclick = async () => {
+      try { const x = await T.create(t, $('tabName').value.trim()); T.choose(x); note(`${x.name} is ready. You're its DM.`); showTables(); }
+      catch (e) { note(e.message); }
+    };
+    return;
+  }
+  const head = `<div class="trow"><span class="grow">${tablePicker(cur)}</span><span class="badge ${cur.role === 'dm' ? 'dm' : ''}">${cur.role === 'dm' ? "You're the DM" : cur.status === 'approved' ? 'Player' : 'Waiting for approval'}</span></div>`;
+  if (cur.role !== 'dm') {
+    box(`<h2>Your table</h2>${head}
+      <p>${cur.status === 'approved' ? 'You see the player apps. Your DM shares your character sheet with you.' : cur.status === 'removed' ? 'The DM removed you from this table.' : "You've asked to join. Your DM approves you from their launcher."}</p>
+      <div class="trow">${tabs.some(x => x.role === 'dm') ? '' : '<button type="button" id="tabNew">Start my own table</button>'}<button type="button" id="tabLeave">Leave this table</button></div>`);
+    bindPicker(t);
+    $('tabLeave').onclick = async () => { if (!confirm(`Leave ${cur.name}?`)) return; await T.leave(t, cur.id); note(`You left ${cur.name}.`); showTables(); };
+    if ($('tabNew')) $('tabNew').onclick = () => { T.choose(null); tabs = tabs.filter(x => x.role === 'dm'); renderApps(); renderTable(t, null); };
+    return;
+  }
+  box(`<h2>Your table</h2>${head}
+    <div class="trow"><button type="button" class="primary" id="tabInvite">Invite a player</button><button type="button" id="tabNew">New table</button></div>
+    <div id="tabLink">${inviteLink ? linkRow(inviteLink) : ''}</div>
+    <ul class="people" id="tabPeople"><li><small>Loading players…</small></li></ul>`);
+  bindPicker(t);
+  $('tabInvite').onclick = async () => {
+    try { inviteLink = await T.invite(t, cur.id); $('tabLink').innerHTML = linkRow(inviteLink); bindCopy(); copy(inviteLink); }
+    catch (e) { note(e.message); }
+  };
+  $('tabNew').onclick = () => { renderTable(t, null); };
+  bindCopy();
+  stopMembers = T.watchMembers(t, cur.id, list => {
+    const el = $('tabPeople'); if (!el) return;
+    const waiting = list.filter(m => m.status === 'pending'), players = list.filter(m => m.status === 'approved');
+    el.innerHTML = [
+      ...waiting.map(m => `<li><span class="grow"><b>${esc(m.name || m.email)}</b> <small>${esc(m.email)} · wants to join</small></span><button type="button" data-ok="${esc(m.uid)}" class="primary">Approve</button><button type="button" data-no="${esc(m.uid)}">Decline</button></li>`),
+      ...players.map(m => `<li><span class="grow"><b>${esc(m.name || m.email)}</b> <small>${esc(m.email)}</small></span><button type="button" data-no="${esc(m.uid)}">Remove</button></li>`),
+    ].join('') || '<li><small>No players yet. Invite them with a link.</small></li>';
+    if (waiting.length) note(`${waiting.length} ${waiting.length === 1 ? 'player is' : 'players are'} waiting for you to approve them.`);
+    el.onclick = async e => {
+      const ok = e.target.closest('[data-ok]'), no = e.target.closest('[data-no]');
+      try {
+        if (ok) { await T.approve(t, cur.id, ok.dataset.ok); note('Approved. They now see the player apps, and you can share their character sheet with them.'); }
+        if (no) { const m = list.find(x => x.uid === no.dataset.no); if (!confirm(`${m?.status === 'approved' ? 'Remove' : 'Decline'} ${m?.name || m?.email || 'this person'}?`)) return; await T.remove(t, cur.id, no.dataset.no); }
+      } catch (err) { note(err.message); }
+    };
+  });
+}
+const linkRow = l => `<div class="trow"><input class="grow" id="tabLinkText" readonly value="${esc(l)}" aria-label="Invite link"><button type="button" id="tabCopy">Copy</button></div><p>Send this link to a player. When they open it and sign in, they show up here for you to approve. A forwarded link can't get anyone in without your approval.</p>`;
+function bindCopy() { if ($('tabCopy')) $('tabCopy').onclick = () => copy($('tabLinkText').value); }
+function copy(text) { navigator.clipboard?.writeText(text).then(() => note('Invite link copied.'), () => { $('tabLinkText')?.select(); note('Select the link and copy it.'); }); }
+function bindPicker(t) {
+  if (!$('tabSel')) return;
+  $('tabSel').onchange = e => { const x = tabs.find(y => y.id === e.target.value); if (x) { T.choose(x); inviteLink = ''; renderApps(); renderCampaigns(); renderTable(t, T.current()); note(`Now using ${x.name}.`); } };
+}
+async function showJoin(t, j) {
+  const [id, code] = j.split('~');
+  const done = () => { try { sessionStorage.removeItem(JOIN); } catch { /* */ } };
+  let info;
+  try { info = await T.peek(t, id); }
+  catch (e) { box(`<h2>Invite link</h2><p>${esc(e.message)}</p><div class="trow"><button type="button" id="joinRetry">Try again</button></div>`); $('joinRetry').onclick = () => showTables(); return; }
+  if (!info) { done(); box("<h2>Invite link</h2><p>That table doesn't exist anymore. Ask your DM for a new link.</p>"); return; }
+  box(`<h2>Join ${esc(info.name)}</h2><p>${esc(info.dmName || 'The DM')} invited you to play. Once you ask, they approve you from their launcher, and then they can share your character sheet with you.</p>
+    <div class="trow"><input class="grow" id="joinName" placeholder="Your name at the table" autocomplete="name"><button type="button" class="primary" id="joinGo">Ask to join</button><button type="button" id="joinNo">Not now</button></div>`);
+  $('joinNo').onclick = () => { done(); showTables(); };
+  $('joinGo').onclick = async () => {
+    try { const x = await T.requestJoin(t, id, code, $('joinName').value.trim()); done(); T.choose(x); note(x.role === 'dm' ? "That's your own table." : `You asked to join ${x.name}. You'll see the player apps once you're approved.`); showTables(); }
+    catch (e) { note(e.message); }
+  };
+}
+
 showWho();
 showCampaigns();
+showTables();
 // a pass renewed in the background (or by another app): refresh the line
 window.addEventListener('storage', e => { if (e.key === 'dmp-suite-token') showWho(); });
-if (core.staysSignedIn?.() && !core.signedIn(NEED)) core.refreshNow?.().then(() => { showWho(); showCampaigns(); });
+if (core.staysSignedIn?.() && !core.signedIn(NEED)) core.refreshNow?.().then(() => { showWho(); showCampaigns(); showTables(); });
 setInterval(showWho, 60000);
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
