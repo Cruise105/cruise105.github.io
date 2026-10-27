@@ -1,12 +1,12 @@
 // Offline support for the launcher only. Its scope is the whole site, so it deliberately leaves every other
 // address alone: each app has its own offline support, and a page this doesn't recognize goes straight to
 // the network as if this weren't here.
-const VERSION = 'launcher-v2';
+const VERSION = 'launcher-v3';
 const FILES = [
   '/', '/index.html', '/manifest.webmanifest', '/launcher/logo.webp', '/launcher/icon-192.png', '/launcher/icon-512.png',
   '/fonts/alegreya-latin-400-normal.woff2', '/fonts/alegreya-latin-800-normal.woff2',
   '/fonts/alegreya-sans-latin-400-normal.woff2', '/fonts/alegreya-sans-latin-500-normal.woff2',
-  '/core/suite.js', '/core/live.js', '/core/views.js',
+  '/core/suite.js', '/core/live.js', '/core/views.js', '/core/effects.js',
 ];
 const MINE = new Set(FILES);
 
