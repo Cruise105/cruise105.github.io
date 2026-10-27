@@ -185,8 +185,10 @@ export function cwatchEach(key, path, cb) {
   return () => { stopped = true; stops.forEach(s => s()); };
 }
 /** An app's channel for one character: the sheet fields it shows there. */
+// The fields also travel as text (json), because the database drops empty lists and blank values: without it,
+// "no conditions any more" would arrive as nothing at all and the sheet would keep showing the old ones.
 export function channel(key, name, fields) {
-  return cput(key, `ch/${name}`, { fields, t: Date.now() });
+  return cput(key, `ch/${name}`, { fields, json: JSON.stringify(fields ?? {}), t: Date.now() });
 }
 /** Sheet field paths can't go into Firebase keys as they are ("hp.max"); these swap them safely. */
 export const encPath = p => String(p).replace(/\./g, '~');
