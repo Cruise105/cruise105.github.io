@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy · The DM's Perspective</title>
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/launcher/icon-192.png">
+<style>
+@font-face { font-family: 'Alegreya'; src: url('/fonts/alegreya-latin-800-normal.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+@font-face { font-family: 'Alegreya Sans'; src: url('/fonts/alegreya-sans-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Alegreya Sans'; src: url('/fonts/alegreya-sans-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+:root { --bone: #ece4d4; --ash: #a3978a; --ember: #f7941d; --line: rgba(236, 228, 212, .16); }
+* { box-sizing: border-box; }
+html { background: #000; color-scheme: dark; }
+body { margin: 0; color: var(--bone); font: 400 17px/1.6 'Alegreya Sans', system-ui, sans-serif; background: #000; }
+main { max-width: 68ch; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font: 800 clamp(30px, 5vw, 42px)/1.1 'Alegreya', Georgia, serif; margin: 0 0 6px; }
+h2 { font: 800 22px/1.25 'Alegreya', Georgia, serif; margin: 32px 0 6px; }
+p, li { color: var(--bone); }
+.lead { color: var(--ash); margin-top: 0; }
+ul { padding-left: 22px; }
+a { color: var(--ember); }
+:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; }
+.back { display: inline-block; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="/">The DM's Perspective</a>
+  <h1>Privacy policy</h1>
+  <p class="lead">For the apps at cruise105.github.io: the launcher, Bestiary, Character Sheet, Session Notes and Magic Items. Last updated 27 October 2026.</p>
+
+  <p>These apps help a Dungeon Master and their players run tabletop games. They run in your browser. There's no account to create with us, no advertising, no analytics and no tracking, and nothing about you is sold or shared for marketing.</p>
+
+  <h2>What the apps store, and where</h2>
+  <ul>
+    <li><b>On your device.</b> What you enter (monsters, characters, notes, items, settings) is kept in your browser so the apps work offline.</li>
+    <li><b>In your own Google Drive</b>, if you connect it. The apps save their data there so it syncs between your devices: in a private app folder only these apps can open, and, for character sheets, in a folder the apps create in your Drive. The apps can only see files they created themselves or files you choose to open with them. They can't see the rest of your Drive.</li>
+    <li><b>Shared with your table.</b> A DM can share a character's sheet with that character's player through Google Drive, and the player sees it in their own copy of the Character Sheet app.</li>
+  </ul>
+
+  <h2>Google sign-in</h2>
+  <p>Signing in with Google lets the apps read and write the files described above, and tells them your Google email address, which is used only to recognize your role at the table (for example, whether you're the DM). The apps ask Google only for access to files they created and to their private app folder.</p>
+  <p>To keep you signed in, your sign-in goes through a small service of ours on Cloudflare (the "key keeper"). It trades Google's one-time sign-in code for a long-term key, locks that key so only the service can use it, and gives the locked copy back to your device. The service doesn't store the key or your data. Signing out in the launcher tells Google to cancel the key. You can also remove the apps' access at any time in your Google Account, under Security, Third-party apps.</p>
+
+  <h2>Live updates during a game</h2>
+  <p>So that changes show up instantly on players' devices (hit points, turns, conditions, character sheets), the apps send that game information through Google Firebase. Each character's information is kept under its own long random key that only that character's player and the DM's devices know. It holds game details only, not your email or Drive files.</p>
+
+  <h2>Who can see your data</h2>
+  <p>You, and the people you choose to share with through Google Drive. We don't have a database of users and don't look at your files. Google, Cloudflare and Firebase process the data above only to provide these services, under their own privacy policies.</p>
+
+  <h2>Deleting your data</h2>
+  <p>Each app can erase its data on your device from its settings. Data in your Google Drive is yours to delete there. Live game information in Firebase is replaced as play goes on and holds nothing beyond the game.</p>
+
+  <h2>Changes and questions</h2>
+  <p>If this policy changes, the date at the top will change with it. For questions, use the support email shown on Google's sign-in screen for these apps.</p>
+</main>
+</body>
+</html>
