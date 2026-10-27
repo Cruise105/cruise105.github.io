@@ -13,7 +13,7 @@
 // Apps load this file with import('/core/suite.js') and carry on with their own sign-in if it can't load,
 // so the suite never becomes a single point of failure.
 
-export const VERSION = 8;
+export const VERSION = 9;
 export const CLIENT_ID = '150155066546-k6e9l4c0fbmel2tdfkv4c4gs41bqd847.apps.googleusercontent.com';
 export const SCOPES = {
   appdata: 'https://www.googleapis.com/auth/drive.appdata',
@@ -128,7 +128,7 @@ export function status() {
    hands the locked copy back. This device keeps the locked copy and quietly gets a fresh pass before each one
    runs out, for every app on the site. Without the keeper (or offline), apps fall back to their one-hour sign-in.
    ---------------------------------------------------------------------------------------------------- */
-export const KEEPER = '';
+export const KEEPER = 'https://dmp-keeper.kodyhutson201.workers.dev';
 const KEEP = 'dmp-suite-keeper';
 const keeperKey = () => { try { return localStorage.getItem(KEEP) || ''; } catch { return ''; } };
 export const keeperReady = () => !!KEEPER;
