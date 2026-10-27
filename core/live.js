@@ -3,7 +3,9 @@
 // Google Drive keeps everything; this carries everything a player sees the moment it changes (their sheet, HP,
 // turns, conditions, and what other apps show on their sheet). Nobody signs in: each character has its own long
 // secret key that only travels inside their sheet file (so only that player and the DM know it), and the
-// database's rules only let a device reach a character whose key it knows. If Firebase can't be reached, every
+// database's rules only let a device reach a character whose key it knows. Every device must also be signed in
+// with a Google account (the suite's own sign-in, used once per device), so nobody can use the live link
+// anonymously, and the DM's Perspective can block an account that misuses it. If Firebase can't be reached, every
 // app carries on through Drive exactly as before, just slower.
 
 const CONFIG = {
@@ -51,6 +53,15 @@ export function connect() {
       const app = A.getApps().find(a => a.name === 'dmp') || A.initializeApp(CONFIG, 'dmp');
       const auth = U.getAuth(app);
       if (auth.authStateReady) await withTimeout(auth.authStateReady(), 10000, 'Restoring the sign-in');
+      // sign in to the live link with this device's Google account (kept by Firebase after the first time)
+      if (!auth.currentUser || auth.currentUser.isAnonymous) {
+        const pass = await googlePass();
+        if (pass) {
+          try { await withTimeout(U.signInWithCredential(auth, U.GoogleAuthProvider.credential(null, pass)), 15000, 'Signing in to the live link'); log('ready', 'signed in as a Google account'); }
+          catch (e) { log('FAIL', 'Google sign-in', e?.message || String(e)); }
+        } else log('FAIL', 'not signed in', 'sign in with Google in the launcher');
+      }
+      // without a Google account the live link refuses everything; the apps carry on through Drive
       if (!auth.currentUser) await withTimeout(U.signInAnonymously(auth), 15000, 'Connecting to Firebase');
       fb = { db: D.getDatabase(app), ref: D.ref, set: D.set, onValue: D.onValue, onChildAdded: D.onChildAdded, onChildChanged: D.onChildChanged, D, U, auth };
       lastError = '';
@@ -66,6 +77,19 @@ export function connect() {
   return ready;
 }
 export const error = () => lastError;
+
+// The suite's Google pass on this device, waiting a little for an app that's signing in right now.
+async function googlePass() {
+  const S = await import('./suite.js').catch(() => null);
+  if (!S) return null;
+  for (let i = 0; i < 30; i++) {
+    let p = S.signedIn('');
+    if (!p && S.staysSignedIn && S.staysSignedIn()) p = await S.refreshNow().catch(() => null);
+    if (p && p.value) return p.value;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return null;
+}
 
 /**
  * Sign in to the live link as this Google account (tables need a real identity; character channels work either

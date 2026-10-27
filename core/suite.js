@@ -13,7 +13,7 @@
 // Apps load this file with import('/core/suite.js') and carry on with their own sign-in if it can't load,
 // so the suite never becomes a single point of failure.
 
-export const VERSION = 10;
+export const VERSION = 11;
 export const CLIENT_ID = '150155066546-k6e9l4c0fbmel2tdfkv4c4gs41bqd847.apps.googleusercontent.com';
 export const SCOPES = {
   appdata: 'https://www.googleapis.com/auth/drive.appdata',
