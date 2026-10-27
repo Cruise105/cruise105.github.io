@@ -37,7 +37,12 @@ export async function mine(token) {
   const c = await db(token);
   const list = Object.entries((await val(c, `users/${me.uid}/tables`)) || {}).map(([id, t]) => ({ id, ...t }));
   for (const t of list) {
-    if (t.role !== 'player') { t.status = 'approved'; continue; }
+    // a DM only counts as DM if the table itself says so (never just your own list)
+    if (t.role !== 'player') {
+      const dm = await val(c, `tables/${t.id}/info/dm`).catch(() => null);
+      t.role = dm === me.uid ? 'dm' : 'player';
+      if (t.role === 'dm') { t.status = 'approved'; continue; }
+    }
     const m = await val(c, `tables/${t.id}/members/${me.uid}`).catch(() => null);
     t.status = m?.status || 'removed';
     if (t.status === 'approved' && t.waiting) { await c.D.update(c.ref(c.db, `users/${me.uid}/tables/${t.id}`), { waiting: null }); delete t.waiting; }
