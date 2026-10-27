@@ -51,7 +51,7 @@ export function connect() {
       const app = A.getApps().find(a => a.name === 'dmp') || A.initializeApp(CONFIG, 'dmp');
       const auth = U.getAuth(app);
       if (!auth.currentUser) await withTimeout(U.signInAnonymously(auth), 15000, 'Connecting to Firebase');
-      fb = { db: D.getDatabase(app), ref: D.ref, set: D.set, onValue: D.onValue, D };
+      fb = { db: D.getDatabase(app), ref: D.ref, set: D.set, onValue: D.onValue, onChildAdded: D.onChildAdded, onChildChanged: D.onChildChanged, D };
       lastError = '';
       log('ready', 'connected to Firebase');
       return fb;
@@ -105,11 +105,32 @@ export function cwatch(key, path, cb) {
     if (!c || stopped) return;
     log('watch', `${short(key)}…/${path}`);
     stop = c.onValue(c.ref(c.db, cpath(key, path)), snap => {
-      log('got', `${short(key)}…/${path}`);
+      log('got', `${short(key)}…/${path}`, `${JSON.stringify(snap.val() ?? null).length} bytes`);
       try { cb(snap.val()); } catch (e) { log('ERROR', `handling ${short(key)}…/${path}`, e?.message || String(e)); console.error(e); }
     }, e => { lastError = e.message; log('FAIL', `watch ${short(key)}…/${path}`, e.message); });
   });
   return () => { stopped = true; stop?.(); };
+}
+/**
+ * Hear each entry under one character's path, one at a time: every existing entry once, then only an entry
+ * that's added or changed (never the whole list again). cb(name, value). Returns a stop function.
+ * This keeps a busy list (sheet fields, HP changes, channels) from re-downloading everything on each change.
+ */
+export function cwatchEach(key, path, cb) {
+  let stops = [], stopped = false;
+  if (okKey(key)) connect().then(c => {
+    if (!c || stopped) return;
+    log('watch', `${short(key)}…/${path}/*`);
+    const r = c.ref(c.db, cpath(key, path));
+    const handle = snap => {
+      const v = snap.val();
+      log('got', `${short(key)}…/${path}/${snap.key}`, `${JSON.stringify(v ?? null).length} bytes`);
+      try { cb(snap.key, v); } catch (e) { log('ERROR', `handling ${short(key)}…/${path}/${snap.key}`, e?.message || String(e)); console.error(e); }
+    };
+    const fail = e => { lastError = e.message; log('FAIL', `watch ${short(key)}…/${path}`, e.message); };
+    stops = [c.onChildAdded(r, handle, fail), c.onChildChanged(r, handle, fail)];
+  });
+  return () => { stopped = true; stops.forEach(s => s()); };
 }
 /** An app's channel for one character: the sheet fields it shows there. */
 export function channel(key, name, fields) {
