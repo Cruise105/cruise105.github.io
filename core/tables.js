@@ -105,6 +105,31 @@ export async function playerEmails(token, id = current()?.id) {
   const c = await db(token);
   return Object.values((await val(c, `tables/${id}/members`)) || {}).filter(m => m.status === 'approved' && m.email).map(m => ({ email: m.email, name: m.name || '' }));
 }
+/* ---------- which sheets the DM shared with whom (so a player's app can offer them without searching) ----------
+   tables/<id>/members/<uid>/sheets/<charId>  { file: Drive file id, name, at }   members/<uid>/lib: the Table Library's file
+   Only the DM writes these; each player can read only their own. */
+/** DM: note sheets shared with players, by their email: [{ email, charId, file, name }], plus the Table Library's file. */
+export async function assignSheets(token, id, shares, lib = '') {
+  const c = await db(token);
+  const ms = (await val(c, `tables/${id}/members`)) || {};
+  const byEmail = new Map(Object.entries(ms).filter(([, m]) => m.status === 'approved' && m.email).map(([uid, m]) => [m.email.toLowerCase(), { uid, m }]));
+  const patch = {}; let n = 0;
+  for (const s of shares) {
+    const hit = byEmail.get(String(s.email || '').toLowerCase()); if (!hit) continue;
+    const have = hit.m.sheets?.[s.charId];
+    if (!have || have.file !== s.file || have.name !== (s.name || '')) { patch[`${hit.uid}/sheets/${s.charId}`] = { file: s.file, name: s.name || '', at: Date.now() }; n++; }
+    if (lib && hit.m.lib !== lib) { patch[`${hit.uid}/lib`] = lib; n++; }
+  }
+  if (n) await c.D.update(c.ref(c.db, `tables/${id}/members`), patch);
+  return n;
+}
+/** Player: the sheets your DM shared with you at this table, and the Table Library: { sheets: [{ charId, file, name }], lib } */
+export async function mySheets(token, id = current()?.id) {
+  const c = await db(token);
+  const m = (await val(c, `tables/${id}/members/${me.uid}`)) || {};
+  return { sheets: Object.entries(m.sheets || {}).map(([charId, s]) => ({ charId, ...s })), lib: m.lib || '' };
+}
+
 /* ---------- the magic item catalog players can browse (Magic Items publishes it; no prices, no DM notes) ----------
    tables/<id>/catalog/items/<key>  { n: name, ty: type, r: rarity, a: attunement line, w: weight, s: source, d: description }
    tables/<id>/catalog/meta         { t, count, sources: { key: name } }
