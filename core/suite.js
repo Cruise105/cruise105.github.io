@@ -13,7 +13,7 @@
 // Apps load this file with import('/core/suite.js') and carry on with their own sign-in if it can't load,
 // so the suite never becomes a single point of failure.
 
-export const VERSION = 7;
+export const VERSION = 8;
 export const CLIENT_ID = '150155066546-k6e9l4c0fbmel2tdfkv4c4gs41bqd847.apps.googleusercontent.com';
 export const SCOPES = {
   appdata: 'https://www.googleapis.com/auth/drive.appdata',
@@ -117,8 +117,102 @@ export function forget(value) {
 /** For a status line: who's signed in across the suite and for how much longer. */
 export function status() {
   const t = read();
-  if (!t || !t.value || !(t.exp > Date.now())) return { signedIn: false, email: '', minutesLeft: 0 };
-  return { signedIn: true, email: t.email || '', minutesLeft: Math.max(0, Math.round((t.exp - Date.now()) / 60000)) };
+  const kept = !!keeperKey();
+  if (!t || !t.value || !(t.exp > Date.now())) return { signedIn: false, email: '', minutesLeft: 0, kept };
+  return { signedIn: true, email: t.email || '', minutesLeft: Math.max(0, Math.round((t.exp - Date.now()) / 60000)), kept };
+}
+
+/* ----------------------------------------------------------------------------------------------------
+   Staying signed in (the key keeper). Google only gives browser apps one-hour passes, so signing in here goes
+   through a small worker (keeper/worker.js) that trades Google's sign-in code for a long-term key, locks it, and
+   hands the locked copy back. This device keeps the locked copy and quietly gets a fresh pass before each one
+   runs out, for every app on the site. Without the keeper (or offline), apps fall back to their one-hour sign-in.
+   ---------------------------------------------------------------------------------------------------- */
+export const KEEPER = '';
+const KEEP = 'dmp-suite-keeper';
+const keeperKey = () => { try { return localStorage.getItem(KEEP) || ''; } catch { return ''; } };
+export const keeperReady = () => !!KEEPER;
+export const staysSignedIn = () => !!(KEEPER && keeperKey());
+
+async function keeper(path, body) {
+  const r = await fetch(KEEPER.replace(/\/$/, '') + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.error || `The sign-in keeper answered ${r.status}.`); e.signin = !!j.signin; e.status = r.status; throw e; }
+  return j;
+}
+function loadGis() {
+  if (globalThis.google?.accounts?.oauth2) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = () => resolve(); s.onerror = () => reject(new Error("Couldn't reach Google. Check the connection and try again."));
+    document.head.append(s);
+  });
+}
+function askCode(scope, prompt) {
+  return new Promise((resolve, reject) => {
+    const c = google.accounts.oauth2.initCodeClient({
+      client_id: CLIENT_ID, scope, ux_mode: 'popup', ...(prompt ? { prompt } : {}),
+      callback: r => (r.error ? reject(new Error(r.error_description || r.error)) : resolve(r.code)),
+      error_callback: e => reject(new Error(e?.type === 'popup_closed' ? 'Sign-in was closed before it finished.' : (e?.message || 'Sign-in failed.'))),
+    });
+    c.requestCode();
+  });
+}
+/**
+ * Sign in and stay signed in (needs a tap: it opens Google's popup). scope: the permissions this app needs; any
+ * the suite already had are kept. Resolves to { value, exp, scope } and shares it with every app.
+ */
+export async function signInLong(scope, opts = {}) {
+  if (!KEEPER) throw new Error('The sign-in keeper is not set up.');
+  await loadGis();
+  const have = list(read()?.scopes);
+  const want = [...new Set([...list(scope), ...have])].join(' ');
+  let out = await keeper('/exchange', { code: await askCode(want, opts.prompt) });
+  // Google only hands out the long-term key on a full consent; ask once more if it didn't
+  if (!out.key && !keeperKey()) out = await keeper('/exchange', { code: await askCode(want, 'consent') });
+  if (out.key) { try { localStorage.setItem(KEEP, out.key); } catch { /* storage blocked: one-hour passes only */ } }
+  await share({ access_token: out.access_token, expires_in: out.expires_in, scope: out.scope || want }, { app: opts.app || '' });
+  const t = read();
+  return { value: t.value, exp: t.exp, scope: (t.scopes || []).join(' ') };
+}
+let refreshing = null;
+/** A fresh pass from the locked key, shared with every app. Resolves to the pass, or null if it can't. */
+export function refreshNow() {
+  const key = keeperKey();
+  if (!KEEPER || !key) return Promise.resolve(null);
+  if (refreshing) return refreshing;
+  refreshing = (async () => {
+    try {
+      const out = await keeper('/refresh', { key });
+      const prev = read();
+      await share({ access_token: out.access_token, expires_in: out.expires_in, scope: out.scope || (prev?.scopes || []).join(' ') }, { email: prev?.email || '' });
+      return read();
+    } catch (e) {
+      if (e.signin) { try { localStorage.removeItem(KEEP); } catch { /* */ } } // revoked or expired: sign in again
+      return null;
+    } finally { refreshing = null; }
+  })();
+  return refreshing;
+}
+/** Sign out of the suite on this device, and make Google forget the long-term key. */
+export async function signOutLong() {
+  const key = keeperKey();
+  try { localStorage.removeItem(KEEP); } catch { /* */ }
+  const t = read(); if (t) forget(t.value);
+  if (KEEPER && key) { try { await keeper('/signout', { key }); } catch { /* offline: it lapses on its own */ } }
+}
+// Keep a fresh pass ready, on any page that loads the core: renew ten minutes before it runs out
+function keepFresh() {
+  if (!KEEPER || !keeperKey() || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
+  const t = read();
+  if (!t || !t.value || t.exp - Date.now() < 10 * 60000) refreshNow();
+}
+if (typeof window !== 'undefined') {
+  keepFresh();
+  setInterval(keepFresh, 60000);
+  window.addEventListener('online', keepFresh);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepFresh(); });
 }
 
 /* ====================================================================================================

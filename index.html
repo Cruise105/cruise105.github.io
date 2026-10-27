@@ -176,6 +176,13 @@ function loadGis() {
 async function signIn() {
   note('Opening Google sign-in…');
   try {
+    if (core.keeperReady?.()) {
+      try {
+        await core.signInLong(NEED.join(' '), { app: 'launcher' });
+        note(core.staysSignedIn() ? 'Signed in. You stay signed in on this device, in every app.' : 'Signed in for an hour (staying signed in needs this browser to allow saving data).');
+        await showCampaigns(); showWho(); return;
+      } catch (e) { if (/closed before/.test(e.message)) throw e; console.warn('key keeper', e); }
+    }
     await loadGis();
     await new Promise((resolve, reject) => {
       let before = false; try { before = localStorage.getItem('dmp-launcher-signed') === '1'; } catch { /* */ }
@@ -199,10 +206,15 @@ async function signIn() {
 function showWho() {
   const s = core.status();
   const ok = s.signedIn && token();
-  $('who').innerHTML = ok
-    ? `<span>Signed in${s.email ? ` as <b>${esc(s.email)}</b>` : ''}, ${s.minutesLeft} minutes left</span><button type="button" id="signIn">Renew</button>`
+  $('who').innerHTML = ok && s.kept
+    ? `<span>Signed in${s.email ? ` as <b>${esc(s.email)}</b>` : ''}</span><button type="button" id="signOut">Sign out</button>`
+    : ok
+    ? `<span>Signed in${s.email ? ` as <b>${esc(s.email)}</b>` : ''}, ${s.minutesLeft} minutes left</span><button type="button" id="signIn">${core.keeperReady?.() ? 'Stay signed in' : 'Renew'}</button>`
     : `<button type="button" id="signIn">Sign in with Google</button>`;
-  $('signIn').onclick = signIn;
+  if ($('signIn')) $('signIn').onclick = signIn;
+  if ($('signOut')) $('signOut').onclick = async () => {
+    await core.signOutLong(); note('Signed out on this device. Every app here will ask you to sign in again.'); showWho();
+  };
 }
 
 // ---------- the current campaign, for every app ----------
@@ -233,6 +245,9 @@ $('campSel').addEventListener('change', async e => {
 
 showWho();
 showCampaigns();
+// a pass renewed in the background (or by another app): refresh the line
+window.addEventListener('storage', e => { if (e.key === 'dmp-suite-token') showWho(); });
+if (core.staysSignedIn?.() && !core.signedIn(NEED)) core.refreshNow?.().then(() => { showWho(); showCampaigns(); });
 setInterval(showWho, 60000);
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
