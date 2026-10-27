@@ -13,7 +13,7 @@
 // Apps load this file with import('/core/suite.js') and carry on with their own sign-in if it can't load,
 // so the suite never becomes a single point of failure.
 
-export const VERSION = 6;
+export const VERSION = 7;
 export const CLIENT_ID = '150155066546-k6e9l4c0fbmel2tdfkv4c4gs41bqd847.apps.googleusercontent.com';
 export const SCOPES = {
   appdata: 'https://www.googleapis.com/auth/drive.appdata',
@@ -182,7 +182,7 @@ export async function writeAppdata(token, name, data) {
 /* ---------- campaigns ---------- */
 const emptySuite = () => ({ app: 'dmp-suite', v: 1, campaigns: [], current: { id: '', at: 0 }, settings: {}, clock: {} });
 // Phase 3: table-wide settings (each { v, at }) and each campaign's in-game clock ({ now: minutes, at })
-export const SETTING_DEFAULTS = { spellMode: 'points', initiative: 'active', leveling: 'xp' };
+export const SETTING_DEFAULTS = { spellMode: 'slots', initiative: 'standard', leveling: 'xp' }; // rules as written
 const newestOf = (x, y) => ((y?.at || 0) > (x?.at || 0) ? y : x);
 function mergeKeyed(a, b) {
   const out = {};
