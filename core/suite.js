@@ -276,7 +276,7 @@ export async function writeAppdata(token, name, data) {
 /* ---------- campaigns ---------- */
 const emptySuite = () => ({ app: 'dmp-suite', v: 1, campaigns: [], current: { id: '', at: 0 }, settings: {}, clock: {} });
 // Phase 3: table-wide settings (each { v, at }) and each campaign's in-game clock ({ now: minutes, at })
-export const SETTING_DEFAULTS = { spellMode: 'slots', initiative: 'standard', leveling: 'xp' }; // rules as written
+export const SETTING_DEFAULTS = { spellMode: 'slots', initiative: 'standard', leveling: 'xp', edition: '2014' }; // rules as written (edition: '2014' or '2024')
 const newestOf = (x, y) => ((y?.at || 0) > (x?.at || 0) ? y : x);
 function mergeKeyed(a, b) {
   const out = {};
