@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The DM's Perspective</title>
+<meta name="description" content="Bestiary, Character Sheet, Session Notes and Magic Items for the table, in one place.">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/launcher/icon-192.png">
+<link rel="apple-touch-icon" href="/launcher/icon-192.png">
+<link rel="preload" href="/launcher/logo.webp" as="image">
+<style>
+@font-face { font-family: 'Alegreya'; src: url('/fonts/alegreya-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Alegreya'; src: url('/fonts/alegreya-latin-800-normal.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+@font-face { font-family: 'Alegreya Sans'; src: url('/fonts/alegreya-sans-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Alegreya Sans'; src: url('/fonts/alegreya-sans-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+
+/* The palette is the logo's: the dark it sits in, the warm glow behind the DM, the d20's blue-to-teal faces,
+   and the orange of the eyes, used for one thing only: where you are (focus, the current campaign). */
+:root {
+  --abyss: #000000;
+  --umber: #3a2a1b;
+  --bone: #ece4d4;
+  --ash: #a3978a;
+  --die-a: #2b86d4;
+  --die-b: #5cc4b1;
+  --ember: #f7941d;
+  --line: rgba(236, 228, 212, .16);
+  --serif: 'Alegreya', Georgia, serif;
+  --sans: 'Alegreya Sans', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { background: var(--abyss); color-scheme: dark; }
+body {
+  margin: 0; min-height: 100vh; min-height: 100dvh;
+  color: var(--bone); font: 400 17px/1.5 var(--sans);
+  background: radial-gradient(60vmax 50vmax at 50% 14rem, var(--umber) 0%, rgba(58, 42, 27, .35) 38%, var(--abyss) 72%) no-repeat, var(--abyss);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--ember); outline-offset: 4px; }
+
+.top { display: flex; justify-content: flex-end; padding: 14px 16px 0; min-height: 52px; }
+.who { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--ash); }
+.who b { color: var(--bone); font-weight: 500; }
+button {
+  font: 500 15px/1 var(--sans); color: var(--bone); cursor: pointer;
+  background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; min-height: 40px;
+}
+button:hover { border-color: rgba(236, 228, 212, .4); }
+
+.hero { display: grid; justify-items: center; text-align: center; padding: 8px 16px 0; }
+.logo { width: min(240px, 58vw); aspect-ratio: 1; border-radius: 50%; display: block;
+  filter: drop-shadow(0 0 36px rgba(247, 148, 29, .16)); }
+h1 { font: 800 clamp(34px, 6vw, 52px)/1.05 var(--serif); letter-spacing: .01em; margin: 18px 0 0; }
+
+.campaign { margin: 18px auto 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px; color: var(--ash); }
+.campaign select {
+  font: 500 16px/1.2 var(--sans); color: var(--bone); background: rgba(0, 0, 0, .6);
+  border: 1px solid var(--ember); border-radius: 8px; padding: 9px 34px 9px 12px; min-height: 42px; max-width: 80vw;
+  appearance: none; -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ember) 50%), linear-gradient(135deg, var(--ember) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 18px, calc(100% - 12px) 18px; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.note { min-height: 1.5em; margin: 8px 16px 0; text-align: center; color: var(--ash); font-size: 15px; }
+
+/* The apps sit on the table as dice: each a d20 face seen head-on, its symbol in silhouette like the party in the logo */
+.table { list-style: none; margin: 34px auto 0; padding: 0 16px 56px; max-width: 760px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px 20px; }
+.app { display: grid; justify-items: center; text-align: center; text-decoration: none; gap: 10px; border-radius: 12px; padding: 4px; }
+.die { position: relative; width: 112px; aspect-ratio: 112 / 128; }
+.die svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.die .face { }
+.die .edge { fill: none; stroke: rgba(255, 255, 255, .28); stroke-width: 1.2; }
+.die .rim { fill: none; stroke: #000; stroke-width: 3; }
+.die .glyph { fill: #000; }
+.app:hover .die svg, .app:focus-visible .die svg { filter: drop-shadow(0 0 14px rgba(92, 196, 177, .45)); }
+.name { font: 800 21px/1.15 var(--serif); }
+.what { font-size: 15px; color: var(--ash); max-width: 22ch; }
+.app.soon { cursor: default; }
+.app.soon .die { opacity: .38; filter: grayscale(.7); }
+.app.soon .name { color: var(--ash); }
+.soonlbl { font-size: 14px; color: var(--ash); border: 1px dashed var(--line); border-radius: 999px; padding: 2px 10px; }
+
+footer { text-align: center; color: var(--ash); font-size: 14px; padding: 0 16px 28px; }
+
+@media (max-width: 560px) {
+  .table { grid-template-columns: repeat(2, 1fr); gap: 28px 12px; }
+  .die { width: 96px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .logo { animation: wake 1.6s ease-out both; }
+  @keyframes wake { from { opacity: 0; filter: drop-shadow(0 0 0 rgba(247, 148, 29, 0)); } 60% { opacity: 1; } to { filter: drop-shadow(0 0 36px rgba(247, 148, 29, .16)); } }
+}
+</style>
+</head>
+<body>
+
+
+<header class="top">
+  <div class="who" id="who"><button type="button" id="signIn">Sign in with Google</button></div>
+</header>
+
+<main>
+  <section class="hero">
+    <img class="logo" src="/launcher/logo.webp" width="240" height="240" alt="The DM's Perspective: a dungeon master's silhouette with glowing orange eyes, holding a d20 that shows a dragon above the party">
+    <h1>The DM's Perspective</h1>
+    <div class="campaign" id="campaign" hidden>
+      <label for="campSel">Playing</label>
+      <select id="campSel"></select>
+    </div>
+    <p class="note" id="note" role="status"></p>
+  </section>
+
+  <ul class="table" id="apps"></ul>
+</main>
+
+<footer>Sign in once here and every app uses it.</footer>
+
+<script type="module">
+import * as core from '/core/suite.js';
+
+// ---------- the apps (their addresses follow the repository names exactly) ----------
+const GLYPHS = {
+  // a horned dragon's head in profile, jaws open
+  bestiary: 'M26,90 L34,72 C38,64 44,56 50,50 L44,34 L57,45 L63,32 L67,48 C76,50 84,55 90,61 L88,67 L75,69 L86,78 L67,76 C61,81 53,83 45,82 L38,94 Z M60,55 L69,57 L61,60 Z',
+  // a hooded adventurer, head and shoulders
+  sheet: 'M56,36 C44,36 38,46 38,56 C38,62 40,66 42,69 C34,72 28,80 26,90 L86,90 C84,80 78,72 70,69 C72,66 74,62 74,56 C74,46 68,36 56,36 Z M48,58 C48,52 52,48 56,48 C60,48 64,52 64,58 C64,62 61,66 56,66 C51,66 48,62 48,58 Z',
+  // an open book
+  notes: 'M24,48 C34,44 46,44 54,50 L54,86 C46,80 34,80 24,84 Z M58,50 C66,44 78,44 88,48 L88,84 C78,80 66,80 58,86 Z',
+  // a ring with a gem
+  items: 'M56,52 C42,52 32,62 32,74 C32,86 42,94 56,94 C70,94 80,86 80,74 C80,62 70,52 56,52 Z M56,60 C66,60 72,66 72,74 C72,82 66,86 56,86 C46,86 40,82 40,74 C40,66 46,60 56,60 Z M48,52 L52,40 L60,40 L64,52 Z M50,40 L56,32 L62,40 Z',
+  // a coin pouch, tied at the neck
+  shops: 'M46,44 L66,44 L62,52 C76,58 84,70 84,80 C84,90 72,94 56,94 C40,94 28,90 28,80 C28,70 36,58 50,52 Z M42,40 L70,40 L68,46 L44,46 Z',
+  // a rolled scroll
+  lore: 'M34,40 L78,40 C84,40 86,46 86,50 L80,50 L80,84 C80,90 76,92 72,92 L34,92 C28,92 26,86 26,82 L32,82 L32,46 C32,42 32,40 34,40 Z M40,56 L72,56 L72,59 L40,59 Z M40,64 L72,64 L72,67 L40,67 Z M40,72 L64,72 L64,75 L40,75 Z',
+};
+const APPS = [
+  { id: 'bestiary', name: 'Bestiary', what: 'Monsters and the combat tracker', href: '/Bestiary/' },
+  { id: 'sheet', name: 'Character Sheet', what: "Your players' sheets and the table library", href: '/Char-Sheet/' },
+  { id: 'notes', name: 'Session Notes', what: 'The clock, weather, health and downtime', href: '/Session-Notes/' },
+  { id: 'items', name: 'Magic Items', what: 'Who carries what, and attunement', href: '/Magic-Items/' },
+  { id: 'shops', name: 'Shops', what: 'Stock that restocks each in-game month', soon: true },
+  { id: 'lore', name: 'Lore', what: 'Omnithel for your players to explore', soon: true },
+];
+// a d20 seen head-on: hexagon outline, the center face and the facets around it, in the logo's blue-to-teal
+const die = id => `<span class="die"><svg viewBox="0 0 112 128" aria-hidden="true">
+  <defs><linearGradient id="g-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b86d4"/><stop offset="1" stop-color="#5cc4b1"/></linearGradient></defs>
+  <polygon class="face" fill="url(#g-${id})" points="56,2 110,33 110,95 56,126 2,95 2,33"/>
+  <path class="edge" d="M56,24 L94,88 L18,88 Z M56,2 L56,24 M110,33 L56,24 M2,33 L56,24 M110,33 L94,88 M2,33 L18,88 M110,95 L94,88 M2,95 L18,88 M56,126 L94,88 M56,126 L18,88"/>
+  <polygon class="rim" points="56,2 110,33 110,95 56,126 2,95 2,33"/>
+  <path class="glyph" fill-rule="evenodd" d="${GLYPHS[id]}"/></svg></span>`;
+document.getElementById('apps').innerHTML = APPS.map(a => a.soon
+  ? `<li><div class="app soon">${die(a.id)}<span class="name">${a.name}</span><span class="what">${a.what}</span><span class="soonlbl">Coming later</span></div></li>`
+  : `<li><a class="app" href="${a.href}">${die(a.id)}<span class="name">${a.name}</span><span class="what">${a.what}</span></a></li>`).join('');
+
+// ---------- one sign-in for every app ----------
+const NEED = [core.SCOPES.appdata, core.SCOPES.file];
+const $ = id => document.getElementById(id);
+const note = t => { $('note').textContent = t || ''; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const token = () => core.signedIn(NEED)?.value || null;
+
+function loadGis() {
+  if (window.google?.accounts?.oauth2) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = resolve; s.onerror = () => reject(new Error("Couldn't reach Google. Check the connection and try again."));
+    document.head.append(s);
+  });
+}
+async function signIn() {
+  note('Opening Google sign-in…');
+  try {
+    await loadGis();
+    await new Promise((resolve, reject) => {
+      let before = false; try { before = localStorage.getItem('dmp-launcher-signed') === '1'; } catch { /* */ }
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: core.CLIENT_ID, scope: NEED.join(' '),
+        callback: async r => {
+          if (r.error) return reject(new Error(r.error_description || r.error));
+          await core.share(r, { app: 'launcher' });
+          try { localStorage.setItem('dmp-launcher-signed', '1'); } catch { /* */ }
+          resolve();
+        },
+        error_callback: e => reject(new Error(e?.type === 'popup_closed' ? 'Sign-in was closed before it finished.' : (e?.message || 'Sign-in failed.'))),
+      });
+      client.requestAccessToken({ prompt: before ? '' : 'consent' });
+    });
+    note('Signed in. Every app on this device will use it.');
+    await showCampaigns();
+  } catch (e) { note(e.message); }
+  showWho();
+}
+function showWho() {
+  const s = core.status();
+  const ok = s.signedIn && token();
+  $('who').innerHTML = ok
+    ? `<span>Signed in${s.email ? ` as <b>${esc(s.email)}</b>` : ''}, ${s.minutesLeft} minutes left</span><button type="button" id="signIn">Renew</button>`
+    : `<button type="button" id="signIn">Sign in with Google</button>`;
+  $('signIn').onclick = signIn;
+}
+
+// ---------- the current campaign, for every app ----------
+function renderCampaigns() {
+  const list = core.campaigns(), cur = core.currentCampaign();
+  $('campaign').hidden = !list.length;
+  $('campSel').innerHTML = list.map(c => `<option value="${esc(c.id)}"${cur?.id === c.id ? ' selected' : ''}>${esc(c.name || 'Unnamed campaign')}</option>`).join('');
+}
+async function showCampaigns() {
+  renderCampaigns(); // what this device last knew, straight away
+  const t = token(); if (!t) return;
+  try { await core.loadSuite(t); renderCampaigns(); }
+  catch (e) {
+    if (e.auth) note('Google needs you to sign in again.');
+    else if (e.status) note(`Couldn't load your campaigns: ${e.message}`);
+    else note("Couldn't reach Google Drive, so these are the campaigns this device last saw.");
+    showWho();
+  }
+}
+$('campSel').addEventListener('change', async e => {
+  const t = token();
+  if (!t) { note('Sign in first, then pick the campaign again.'); renderCampaigns(); return; }
+  try {
+    await core.saveSuite(t, { current: e.target.value });
+    note(`Switched to ${core.currentCampaign()?.name || 'that campaign'}. Each app follows the next time it syncs.`);
+  } catch (err) { note(`Couldn't switch campaigns: ${err.message}`); renderCampaigns(); }
+});
+
+showWho();
+showCampaigns();
+setInterval(showWho, 60000);
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+</script>
+</body>
+</html>
