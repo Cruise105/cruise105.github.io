@@ -110,6 +110,29 @@ h1 { font: 800 clamp(34px, 6vw, 52px)/1.05 var(--serif); letter-spacing: .01em; 
 
 footer { text-align: center; color: var(--ash); font-size: 14px; padding: 0 16px 28px; }
 
+/* The tab bar: Home plus every app you've opened. Each app keeps running in its tab, so switching back finds it
+   where you left it. On a phone the tabs are just the app's mark; on a tablet they carry the name too. */
+.tabs { position: fixed; top: 0; left: 0; right: 0; z-index: 50; display: flex; gap: 4px; align-items: stretch;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) 8px 6px; background: #0d0a08; border-bottom: 1px solid var(--line);
+  overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; min-height: 40px; padding: 0 6px 0 10px;
+  border: 1px solid transparent; border-radius: 10px; color: var(--ash); background: transparent; cursor: pointer; font: 500 15px/1 var(--sans); }
+.tab[aria-selected="true"] { color: var(--bone); background: rgba(236, 228, 212, .08); border-color: var(--line); }
+.tab[aria-selected="true"] .mark { color: var(--ember); }
+.tab .mark { width: 22px; height: 22px; flex: 0 0 auto; }
+.tab .tname { white-space: nowrap; }
+.tab .x { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; color: var(--ash); }
+.tab .x:hover { background: rgba(236, 228, 212, .1); color: var(--bone); }
+.tab.home { padding-right: 10px; }
+body.tabbed { padding-top: calc(env(safe-area-inset-top, 0px) + 53px); }
+#frames { position: fixed; left: 0; right: 0; bottom: 0; top: calc(env(safe-area-inset-top, 0px) + 53px); z-index: 40; background: var(--abyss); }
+#frames iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: var(--abyss); }
+#frames iframe.off { visibility: hidden; pointer-events: none; } /* kept at full size, so an app in the background never loses its layout */
+body.inapp { overflow: hidden; }
+body.inapp #home { display: none; }
+@media (max-width: 640px) { .tab .tname { display: none; } .tab.home .tname { display: inline; } }
+
 @media (max-width: 560px) {
   .table { grid-template-columns: repeat(2, 1fr); gap: 28px 12px; }
   .die { width: 96px; }
@@ -121,6 +144,9 @@ footer { text-align: center; color: var(--ash); font-size: 14px; padding: 0 16px
 </style>
 </head>
 <body>
+<nav class="tabs" id="tabs" role="tablist" aria-label="Open apps" hidden></nav>
+<div id="frames" hidden></div>
+<div id="home">
 
 
 <header class="top">
@@ -143,6 +169,7 @@ footer { text-align: center; color: var(--ash); font-size: 14px; padding: 0 16px
 </main>
 
 <footer>Sign in once here and every app uses it. <a href="/privacy.html">Privacy policy</a></footer>
+</div>
 
 <script type="module">
 import * as core from '/core/suite.js';
@@ -182,10 +209,71 @@ function renderApps() {
   const player = core.tableRole() === 'player';
   document.getElementById('apps').innerHTML = APPS.filter(a => !player || a.player).map(a => ({ ...a, what: player && a.playerWhat ? a.playerWhat : a.what })).map(a => a.soon
   ? `<li><div class="app soon">${die(a.id)}<span class="name">${a.name}</span><span class="what">${a.what}</span><span class="soonlbl">Coming later</span></div></li>`
-  // each app opens in its own window (its installed app window, if it's installed), so the launcher stays put
+  // a tap opens the app in its own tab here (see the tabs below); Ctrl-click still opens it in a window of its own
   : `<li><a class="app" href="${a.href}" target="_blank" rel="noopener">${die(a.id)}<span class="name">${a.name}</span><span class="what">${a.what}</span></a></li>`).join('');
 }
 renderApps();
+
+// ---------- tabs: every app you open stays open in its own tab ----------
+const TABS = 'dmp-launcher-tabs';
+const tabState = (() => { try { const v = JSON.parse(localStorage.getItem(TABS) || 'null'); return { open: (v?.open || []).filter(id => APPS.some(a => a.id === id && !a.soon)), active: v?.active || '' }; } catch { return { open: [], active: '' }; } })();
+const frames = {};
+const appOf = id => APPS.find(a => a.id === id);
+const saveTabs = () => { try { localStorage.setItem(TABS, JSON.stringify(tabState)); } catch { /* */ } };
+const mark = id => `<svg class="mark" viewBox="0 0 112 128" aria-hidden="true"><polygon points="56,4 108,34 108,94 56,124 4,94 4,34" fill="none" stroke="currentColor" stroke-width="8"/><path fill="currentColor" fill-rule="evenodd" d="${GLYPHS[id]}"/></svg>`;
+function drawTabs() {
+  const nav = document.getElementById('tabs');
+  const any = tabState.open.length > 0;
+  nav.hidden = !any; document.body.classList.toggle('tabbed', any);
+  const on = tabState.active;
+  nav.innerHTML = `<button type="button" class="tab home" role="tab" data-tab="" aria-selected="${!on}"><img class="mark" src="/launcher/icon-192.png" alt="" style="border-radius:50%"><span class="tname">Home</span></button>`
+    + tabState.open.map(id => { const a = appOf(id); return `<div class="tab" role="tab" tabindex="0" data-tab="${id}" aria-selected="${on === id}" title="${a.name}">${mark(id)}<span class="tname">${a.name}</span><span class="x" role="button" tabindex="0" data-close="${id}" aria-label="Close ${a.name}">×</span></div>`; }).join('');
+}
+function frameFor(id) {
+  if (frames[id]) return frames[id];
+  const a = appOf(id), f = document.createElement('iframe');
+  f.src = a.href; f.title = a.name; f.allow = 'clipboard-read; clipboard-write; fullscreen; camera; microphone';
+  // an app's link back to the launcher shows Home instead of a launcher inside the tab
+  f.addEventListener('load', () => { try { const path = f.contentWindow.location.pathname; if (path === '/' || path === '/index.html') { f.src = a.href; showTab(''); } } catch { /* */ } });
+  document.getElementById('frames').append(f);
+  return (frames[id] = f);
+}
+function showTab(id) {
+  tabState.active = id || '';
+  const box = document.getElementById('frames');
+  box.hidden = !id; document.body.classList.toggle('inapp', !!id);
+  if (id) frameFor(id);
+  for (const [k, f] of Object.entries(frames)) f.classList.toggle('off', k !== id);
+  saveTabs(); drawTabs();
+  if (!id) { renderApps(); window.scrollTo(0, 0); }
+}
+function openTab(id) {
+  if (!tabState.open.includes(id)) tabState.open.push(id);
+  showTab(id);
+}
+function closeTab(id) {
+  tabState.open = tabState.open.filter(x => x !== id);
+  frames[id]?.remove(); delete frames[id];
+  showTab(tabState.active === id ? '' : tabState.active);
+}
+document.getElementById('tabs').addEventListener('click', e => {
+  const x = e.target.closest('[data-close]'); if (x) { e.stopPropagation(); closeTab(x.dataset.close); return; }
+  const t = e.target.closest('[data-tab]'); if (t) showTab(t.dataset.tab);
+});
+document.getElementById('tabs').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const x = e.target.closest('[data-close]'); if (x) { e.preventDefault(); closeTab(x.dataset.close); return; }
+  const t = e.target.closest('[data-tab]'); if (t) { e.preventDefault(); showTab(t.dataset.tab); }
+});
+// a tap on an app opens (or returns to) its tab; a long-press or Ctrl-click still opens it on its own
+document.getElementById('apps').addEventListener('click', e => {
+  const link = e.target.closest('a.app'); if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+  const a = APPS.find(x => x.href === link.getAttribute('href')); if (!a) return;
+  e.preventDefault(); openTab(a.id);
+});
+// opened inside one of its own tabs somehow? Don't stack a launcher in a launcher
+if (window.top !== window) { try { if (window.top.location.origin === location.origin) document.getElementById('apps').innerHTML = ''; } catch { /* */ } }
+else showTab(tabState.open.includes(tabState.active) ? tabState.active : '');
 
 // ---------- one sign-in for every app ----------
 const NEED = [core.SCOPES.appdata, core.SCOPES.file];
