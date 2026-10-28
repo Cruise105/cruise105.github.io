@@ -331,6 +331,9 @@ function openBug() {
 document.getElementById('bugCancel').onclick = () => bug.close();
 document.getElementById('bugForm').addEventListener('submit', async e => {
   e.preventDefault();
+  try { await sendBug(); } catch (err) { document.getElementById('bugMsg').textContent = `Something went wrong: ${err.message}`; document.getElementById('bugSend').disabled = false; }
+});
+async function sendBug() {
   const msg = document.getElementById('bugMsg'), send = document.getElementById('bugSend');
   const what = document.getElementById('bugWhat').value.trim();
   if (what.length < 5) { msg.textContent = 'Say a little about what went wrong.'; return; }
@@ -343,7 +346,7 @@ document.getElementById('bugForm').addEventListener('submit', async e => {
     'Using the installed launcher': matchMedia('(display-mode: standalone)').matches ? 'Yes' : 'No, in the browser',
     'Their role': role === 'dm' ? 'DM of their table' : role === 'player' ? 'Player at a table' : 'Not at a table yet',
     'Rules': `${core.tableSettings?.().edition || '2014'} edition`, 'Online': navigator.onLine ? 'Yes' : 'No',
-    'Sent': new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short' }),
+    'Sent': new Date().toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }),
     'Full browser details (for troubleshooting)': navigator.userAgent };
   send.disabled = true; msg.textContent = 'Sending…';
   try {
@@ -354,7 +357,7 @@ document.getElementById('bugForm').addEventListener('submit', async e => {
     document.getElementById('bugWhat').value = ''; document.getElementById('bugSteps').value = '';
     msg.textContent = 'Sent. Thank you!'; setTimeout(() => bug.close(), 1200);
   } catch (err) { msg.textContent = err.message || "The report couldn't be sent. Check your connection and try again."; send.disabled = false; }
-});
+}
 
 // ---------- one sign-in for every app ----------
 const NEED = [core.SCOPES.appdata, core.SCOPES.file];
