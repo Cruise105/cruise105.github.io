@@ -1,6 +1,6 @@
 // The DM's Perspective — suite core.
 //
-// One shared piece that every app on cruise105.github.io loads, so they stop keeping their own copies of
+// One shared piece that every app on thedmsperspective.github.io loads, so they stop keeping their own copies of
 // the same plumbing.
 //   Phase 1: shared Google sign-in. Sign in once in any app, and every other app on the site picks it up.
 //   Phase 2: shared campaigns and party. One campaign list and one "current campaign" switch for the whole

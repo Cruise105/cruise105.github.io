@@ -1,13 +1,13 @@
 # The DM's Perspective — suite home
 
-This repository is the front page of cruise105.github.io and the home of the **suite core**, the shared piece every app on the site loads.
+This repository is the front page of thedmsperspective.github.io and the home of the **suite core**, the shared piece every app on the site loads.
 
 ## Apps on this site
 
-- [Bestiary](https://cruise105.github.io/Bestiary/)
-- [Character Sheet](https://cruise105.github.io/Char-Sheet/)
-- [Session Notes](https://cruise105.github.io/Session-Notes/)
-- [Magic Items](https://cruise105.github.io/Magic-Items/)
+- [Bestiary](https://thedmsperspective.github.io/Bestiary/)
+- [Character Sheet](https://thedmsperspective.github.io/Char-Sheet/)
+- [Session Notes](https://thedmsperspective.github.io/Session-Notes/)
+- [Magic Items](https://thedmsperspective.github.io/Magic-Items/)
 
 ## Suite core (`core/suite.js`)
 

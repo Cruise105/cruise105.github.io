@@ -12,7 +12,7 @@
 // The client id and the allowed site are below.
 
 const CLIENT_ID = '150155066546-k6e9l4c0fbmel2tdfkv4c4gs41bqd847.apps.googleusercontent.com';
-const ORIGINS = ['https://cruise105.github.io'];
+const ORIGINS = ['https://thedmsperspective.github.io', 'https://cruise105.github.io'];
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
 const enc = new TextEncoder(), dec = new TextDecoder();
