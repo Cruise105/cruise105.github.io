@@ -141,6 +141,50 @@ export async function updateCatalog(token, id, patch) { const c = await db(token
 /** Player (or DM): the whole catalog, { items: { key: item }, meta }, or null if the DM hasn't shared one yet. */
 export async function catalog(token, id = current()?.id) { const c = await db(token); return val(c, `tables/${id}/catalog`); }
 
+/* ---------- the shops players can visit (the Shops app) ----------
+   tables/<id>/shops               what players see: the town where the party is, its open shops and their shelves
+   tables/<id>/shopq/<uid>/<req>   a player's buy or sell request (only they can write it; the DM's Shops app answers)
+   tables/<id>/shopr/<uid>/<req>   the answer, for that player only */
+/** DM: what players see right now (or null when no town is open to them). */
+export async function publishShops(token, id, view) { const c = await db(token); await c.set(c.ref(c.db, `tables/${id}/shops`), view ?? null); }
+/** Player: the shops, kept up to date. cb(view or null). Returns a stop function. */
+export function watchShops(token, id, cb) {
+  let stop = null, stopped = false;
+  db(token).then(c => { if (stopped) return; stop = c.onValue(c.ref(c.db, `tables/${id}/shops`), s => cb(s.val()), () => cb(null)); }).catch(() => cb(null));
+  return () => { stopped = true; stop?.(); };
+}
+/** Player: ask to buy or sell. Resolves with the DM's Shops app's answer ({ ok, … } or { error }), or a timeout. */
+export async function shopRequest(token, id, req, wait = 20000) {
+  const c = await db(token);
+  const rid = rnd(12), ask = c.ref(c.db, `tables/${id}/shopq/${me.uid}/${rid}`), ans = c.ref(c.db, `tables/${id}/shopr/${me.uid}/${rid}`);
+  return new Promise(resolve => {
+    let stop = null;
+    const done = v => { clearTimeout(timer); stop?.(); resolve(v); c.set(ans, null).catch(() => {}); };
+    const timer = setTimeout(() => { c.set(ask, null).catch(() => {}); done({ error: "The shop didn't answer. Your DM's Shops app may not be open right now." }); }, wait);
+    stop = c.onValue(ans, s => { if (s.val()) done(s.val()); });
+    c.set(ask, { ...req, t: Date.now() }).catch(e => done({ error: e.message }));
+  });
+}
+/** DM: hear every player's requests as they come in. cb({ uid, rid, req }). Returns a stop function. */
+export function watchShopRequests(token, id, cb) {
+  let stops = [], stopped = false;
+  db(token).then(c => {
+    if (stopped) return;
+    const seen = new Set();
+    stops.push(c.onValue(c.ref(c.db, `tables/${id}/shopq`), s => {
+      for (const [uid, reqs] of Object.entries(s.val() || {})) for (const [rid, req] of Object.entries(reqs || {})) {
+        if (seen.has(rid)) continue; seen.add(rid); cb({ uid, rid, req });
+      }
+    }));
+  }).catch(() => {});
+  return () => { stopped = true; stops.forEach(f => f()); };
+}
+/** DM: answer a request (and clear it). */
+export async function answerShop(token, id, uid, rid, answer) {
+  const c = await db(token);
+  await c.D.update(c.ref(c.db, `tables/${id}`), { [`shopr/${uid}/${rid}`]: answer, [`shopq/${uid}/${rid}`]: null });
+}
+
 /** DM: delete a table for good (its players, invites and shared-sheet notes go with it). */
 export async function deleteTable(token, id) {
   const c = await db(token);
