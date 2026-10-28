@@ -73,6 +73,13 @@ h1 { font: 800 clamp(34px, 6vw, 52px)/1.05 var(--serif); letter-spacing: .01em; 
 .tablebox input.grow { width: 100%; }
 .tablebox button.primary { border-color: var(--die-b); }
 .tablebox button.danger { border-color: #a33; color: #f99; }
+.tabfold > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; font: 800 18px/1.2 var(--serif); }
+.tabfold > summary::-webkit-details-marker { display: none; }
+.tabfold > summary::after { content: '▸'; margin-left: 4px; color: var(--ash); transition: transform .15s; }
+.tabfold[open] > summary::after { transform: rotate(90deg); }
+.tabfold > summary .grow { flex: 1; }
+.tabfold[open] > summary { margin-bottom: 10px; }
+.tabfold .waiting { font: 600 13px/1 var(--sans); color: #1b1714; background: #f3c35b; border-radius: 999px; padding: 4px 8px; }
 .tablebox .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .tablebox .seg button[aria-pressed="true"] { border-color: var(--die-b); background: rgba(43, 134, 212, .25); }
 .badge { font-size: 13px; color: var(--ash); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
@@ -270,10 +277,18 @@ $('campSel').addEventListener('change', async e => {
 // ---------- tables: who plays together, and who's the DM ----------
 // An invite link (?join=<table>~<code>) is remembered until you've signed in and answered it
 const JOIN = 'dmp-join';
-(() => { const j = new URLSearchParams(location.search).get('join'); if (j) { try { sessionStorage.setItem(JOIN, j); } catch { /* */ } history.replaceState(null, '', '/'); } })();
+(() => { const j = new URLSearchParams(location.search).get('join'); if (j) { try { sessionStorage.setItem(JOIN, j); } catch { /* */ } history.replaceState(null, '', location.pathname); } })();
 const pendingJoin = () => { try { return sessionStorage.getItem(JOIN) || ''; } catch { return ''; } };
 let T = null, tabs = [], stopMembers = null, inviteLink = '';
 const box = html => { $('tablebox').innerHTML = html; $('tablebox').hidden = !html; };
+// Your table folds into one line ("Frostmaiden · You're the DM"); tap it to open. Remembered on this device.
+const FOLD = 'dmp-launcher-table-open';
+const foldOpen = () => { try { return localStorage.getItem(FOLD) === '1'; } catch { return false; } };
+function fold(cur, html) {
+  const label = cur.role === 'dm' ? "You're the DM" : cur.status === 'approved' ? 'Player' : 'Waiting for approval';
+  box(`<details class="tabfold" id="tabFold" ${foldOpen() ? 'open' : ''}><summary><span class="grow">${esc(cur.name)}</span><span class="badge ${cur.role === 'dm' ? 'dm' : ''}">${label}</span><span class="waiting" id="tabWaiting" hidden></span></summary>${html}</details>`);
+  $('tabFold').ontoggle = e => { try { localStorage.setItem(FOLD, e.target.open ? '1' : '0'); } catch { /* */ } };
+}
 async function showTables() {
   const t = token();
   if (!t) { box(pendingJoin() ? '<h2>You were invited to a table</h2><p>Sign in with Google (top right) to ask to join.</p>' : ''); return; }
@@ -309,7 +324,7 @@ function renderTable(t, cur) {
   }
   const head = `<div class="trow"><span class="grow">${tablePicker(cur)}</span><span class="badge ${cur.role === 'dm' ? 'dm' : ''}">${cur.role === 'dm' ? "You're the DM" : cur.status === 'approved' ? 'Player' : 'Waiting for approval'}</span></div>`;
   if (cur.role !== 'dm') {
-    box(`<h2>Your table</h2>${head}
+    fold(cur, `${head}
       <p>${cur.status === 'approved' ? 'You see the player apps. Your DM shares your character sheet with you.' : cur.status === 'removed' ? 'The DM removed you from this table.' : "You've asked to join. Your DM approves you from their launcher."}</p>
       <div class="trow">${tabs.some(x => x.role === 'dm') ? '' : '<button type="button" id="tabNew">Start my own table</button>'}<button type="button" id="tabLeave">Leave this table</button></div>`);
     bindPicker(t);
@@ -317,7 +332,7 @@ function renderTable(t, cur) {
     if ($('tabNew')) $('tabNew').onclick = () => { T.choose(null); tabs = tabs.filter(x => x.role === 'dm'); renderApps(); renderTable(t, null); };
     return;
   }
-  box(`<h2>Your table</h2>${head}
+  fold(cur, `${head}
     <div class="trow"><button type="button" class="primary" id="tabInvite">Invite a player</button><button type="button" id="tabNew">New table</button></div>
     <div id="tabLink">${inviteLink ? linkRow(inviteLink) : ''}</div>
     <ul class="people" id="tabPeople"><li><small>Loading players…</small></li></ul>
@@ -343,6 +358,7 @@ function renderTable(t, cur) {
       ...players.map(m => `<li><span class="grow"><b>${esc(m.name || m.email)}</b> <small>${esc(m.email)}</small></span><button type="button" data-no="${esc(m.uid)}">Remove</button></li>`),
     ].join('') || '<li><small>No players yet. Invite them with a link.</small></li>';
     if (waiting.length) note(`${waiting.length} ${waiting.length === 1 ? 'player is' : 'players are'} waiting for you to approve them.`);
+    const w = $('tabWaiting'); if (w) { w.hidden = !waiting.length; w.textContent = `${waiting.length} waiting`; }
     el.onclick = async e => {
       const ok = e.target.closest('[data-ok]'), no = e.target.closest('[data-no]');
       try {

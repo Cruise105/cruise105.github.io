@@ -64,7 +64,7 @@ export async function invite(token, id) {
   const c = await db(token);
   const code = rnd(10);
   await c.set(c.ref(c.db, `tables/${id}/invites/${code}`), { at: Date.now() });
-  return `${location.origin}/?join=${id}~${code}`;
+  return `${location.origin}/index.html?join=${id}~${code}`;
 }
 /** DM: stop every invite link for this table (members stay). */
 export async function closeInvites(token, id) { const c = await db(token); await c.set(c.ref(c.db, `tables/${id}/invites`), null); }
