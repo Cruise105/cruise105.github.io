@@ -550,11 +550,25 @@ const RULES = [
 function rulesHtml() {
   const s = core.tableSettings ? core.tableSettings() : {};
   return RULES.map(([k, label, opts]) => `<div class="trow"><span class="grow">${label}</span><span class="seg">${opts.map(([v, n]) => `<button type="button" data-rule="${k}" data-v="${v}" aria-pressed="${(s[k] || opts[0][0]) === v}">${n}</button>`).join('')}</span></div>`).join('')
+    + abilHtml(s)
     + '<p>Every app follows these: the Character Sheet, the Bestiary, Session Notes. The first value in each row is the rules as written.</p>';
 }
+// How new characters set their ability scores: any mix of the three, at least one
+const ABIL_METHODS = [['roll', 'Roll'], ['array', 'Standard array'], ['pointbuy', 'Point buy']];
+const abilOn = s => new Set(String(s.abilMethods || 'roll,array,pointbuy').split(',').filter(Boolean));
+const abilHtml = s => { const on = abilOn(s); return `<div class="trow"><span class="grow">New characters' ability scores</span><span class="seg">${ABIL_METHODS.map(([v, n]) => `<button type="button" data-abil="${v}" aria-pressed="${on.has(v)}">${n}</button>`).join('')}</span></div>`; };
 function bindRules(t) {
   const el = $('tabRules'); if (!el) return;
   el.onclick = async e => {
+    const ab = e.target.closest('[data-abil]');
+    if (ab) {
+      const on = abilOn(core.tableSettings ? core.tableSettings() : {});
+      if (on.has(ab.dataset.abil)) on.delete(ab.dataset.abil); else on.add(ab.dataset.abil);
+      if (!on.size) { note('Leave at least one way to set ability scores.'); return; }
+      try { await core.saveSuite(t, { settings: { abilMethods: ABIL_METHODS.map(([v]) => v).filter(v => on.has(v)).join(',') } }); el.innerHTML = rulesHtml(); note('Saved. Each app picks it up the next time it syncs.'); }
+      catch (err) { note(`Couldn't save that: ${err.message}`); }
+      return;
+    }
     const b = e.target.closest('[data-rule]'); if (!b) return;
     try { await core.saveSuite(t, { settings: { [b.dataset.rule]: b.dataset.v } }); el.innerHTML = rulesHtml(); note('Saved. Each app picks it up the next time it syncs.'); }
     catch (err) { note(`Couldn't save that: ${err.message}`); }
