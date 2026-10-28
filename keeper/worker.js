@@ -76,8 +76,8 @@ export default {
       const clip = (v, n) => String(v ?? '').replace(/\r/g, '').slice(0, n).trim();
       const what = clip(body.what, 4000), steps = clip(body.steps, 4000), app = clip(body.app, 60) || 'Launcher';
       if (what.length < 5) return reply({ error: 'Say a little about what went wrong.' }, 400);
-      const info = body.info && typeof body.info === 'object' ? Object.entries(body.info).slice(0, 20).map(([k, v]) => `${clip(k, 40)}: ${clip(v, 300)}`).join('\n') : '';
-      const text = `Bug report from ${email}\nApp: ${app}\n\nWhat went wrong:\n${what}\n\nWhat they were doing:\n${steps || '(not given)'}\n\n--\n${info}`;
+      const info = body.info && typeof body.info === 'object' ? Object.entries(body.info).slice(0, 20).map(([k, v]) => `${clip(k, 60)}: ${clip(v, 400)}`).join('\n') : '';
+      const text = `Bug report from ${email}\nApp: ${app}\n\nWhat went wrong:\n${what}\n\nWhat they were doing:\n${steps || '(not given)'}\n\n-- About their device --\n${info}`;
       const r = await fetch('https://api.resend.com/emails', {
         method: 'POST', headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ from: "The DM's Perspective <onboarding@resend.dev>", to: [REPORT_TO], subject: `Bug report: ${app} — ${what.split('\n')[0].slice(0, 70)}`, text, ...(who.email ? { reply_to: who.email } : {}) }),

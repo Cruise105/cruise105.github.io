@@ -306,6 +306,17 @@ document.getElementById('apps').addEventListener('click', e => {
 if (window.top !== window) { try { if (window.top.location.origin === location.origin) document.getElementById('apps').innerHTML = ''; } catch { /* */ } }
 else showTab(tabState.open.includes(tabState.active) ? tabState.active : '');
 
+// The device and browser in plain words ("Android 14, Samsung Internet 27") instead of the raw browser string
+function deviceName() {
+  const u = navigator.userAgent, m = re => (u.match(re) || [])[1];
+  const os = /iPad/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? `iPad${m(/OS (\d+)/) ? ` (iPadOS ${m(/OS (\d+)/)})` : ''}`
+    : /iPhone/.test(u) ? `iPhone (iOS ${m(/OS (\d+)/) || '?'})` : /Android/.test(u) ? `Android ${m(/Android (\d+)/) || ''}`.trim()
+    : /CrOS/.test(u) ? 'Chromebook' : /Windows/.test(u) ? 'Windows' : /Mac OS X/.test(u) ? 'Mac' : /Linux/.test(u) ? 'Linux' : 'Unknown device';
+  const br = /SamsungBrowser\/(\d+)/.test(u) ? `Samsung Internet ${m(/SamsungBrowser\/(\d+)/)}` : /Edg\/(\d+)/.test(u) ? `Edge ${m(/Edg\/(\d+)/)}`
+    : /Firefox\/(\d+)/.test(u) ? `Firefox ${m(/Firefox\/(\d+)/)}` : /CriOS\/(\d+)/.test(u) ? `Chrome ${m(/CriOS\/(\d+)/)}` : /Chrome\/(\d+)/.test(u) ? `Chrome ${m(/Chrome\/(\d+)/)}`
+    : /Version\/(\d+).*Safari/.test(u) ? `Safari ${m(/Version\/(\d+)/)}` : 'an unknown browser';
+  return `${os}, ${br}`;
+}
 // ---------- report a bug: checked by the key keeper (signed-in people only) and emailed on ----------
 const bug = document.getElementById('bugbox');
 document.addEventListener('click', e => { if (e.target.closest('[data-bug]')) openBug(); });
@@ -327,8 +338,13 @@ document.getElementById('bugForm').addEventListener('submit', async e => {
   if (!pass?.value) { msg.textContent = 'Sign in with Google on the Home tab first, then send it.'; return; }
   const id = document.getElementById('bugApp').value, a = appOf(id);
   let page = ''; try { page = id && frames[id] ? frames[id].contentWindow.location.pathname : location.pathname; } catch { /* */ }
-  const info = { page, device: navigator.userAgent, screen: `${screen.width}×${screen.height}`, installed: matchMedia('(display-mode: standalone)').matches ? 'yes' : 'no',
-    role: core.tableRole?.() || 'none', edition: core.tableSettings?.().edition || '', online: navigator.onLine ? 'yes' : 'no', time: new Date().toString() };
+  const role = core.tableRole?.();
+  const info = { 'Screen they were on': page || 'Home', 'Device': deviceName(), 'Screen size': `${screen.width} × ${screen.height}`,
+    'Using the installed launcher': matchMedia('(display-mode: standalone)').matches ? 'Yes' : 'No, in the browser',
+    'Their role': role === 'dm' ? 'DM of their table' : role === 'player' ? 'Player at a table' : 'Not at a table yet',
+    'Rules': `${core.tableSettings?.().edition || '2014'} edition`, 'Online': navigator.onLine ? 'Yes' : 'No',
+    'Sent': new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short' }),
+    'Full browser details (for troubleshooting)': navigator.userAgent };
   send.disabled = true; msg.textContent = 'Sending…';
   try {
     const r = await fetch(core.KEEPER.replace(/\/$/, '') + '/report', { method: 'POST', headers: { 'Content-Type': 'application/json' },
