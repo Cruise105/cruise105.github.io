@@ -128,7 +128,7 @@ export function status() {
    hands the locked copy back. This device keeps the locked copy and quietly gets a fresh pass before each one
    runs out, for every app on the site. Without the keeper (or offline), apps fall back to their one-hour sign-in.
    ---------------------------------------------------------------------------------------------------- */
-export const KEEPER = 'https://dmp-keeper.kodyhutson201.workers.dev';
+export const KEEPER = 'https://dmp-keeper.thedmsperspective.workers.dev';
 const KEEP = 'dmp-suite-keeper';
 const keeperKey = () => { try { return localStorage.getItem(KEEP) || ''; } catch { return ''; } };
 export const keeperReady = () => !!KEEPER;
