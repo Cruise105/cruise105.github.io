@@ -131,6 +131,20 @@ body.tabbed { padding-top: calc(env(safe-area-inset-top, 0px) + 53px); }
 #frames iframe.off { visibility: hidden; pointer-events: none; } /* kept at full size, so an app in the background never loses its layout */
 body.inapp { overflow: hidden; }
 body.inapp #home { display: none; }
+.tabs .bug { margin-left: auto; flex: 0 0 auto; min-height: 40px; padding: 0 12px; border-radius: 10px; color: var(--ash); font-size: 14px; }
+dialog.bugbox { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; color: var(--bone); background: #15110e;
+  border: 1px solid var(--line); border-radius: 16px; padding: 20px; font: 400 16px/1.45 var(--sans); }
+dialog.bugbox::backdrop { background: rgba(0, 0, 0, .7); }
+dialog.bugbox h2 { font: 800 24px/1.1 var(--serif); margin: 0 0 6px; }
+dialog.bugbox label { display: block; margin: 14px 0 6px; color: var(--ash); font-size: 15px; }
+dialog.bugbox textarea, dialog.bugbox select { width: 100%; font: 400 16px/1.4 var(--sans); color: var(--bone); background: #0d0a08;
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+dialog.bugbox textarea { min-height: 96px; resize: vertical; }
+dialog.bugbox .small { color: var(--ash); font-size: 14px; margin: 12px 0 0; }
+dialog.bugbox .row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+dialog.bugbox .primary { background: var(--ember); color: #1b1714; border-color: var(--ember); font-weight: 600; }
+dialog.bugbox .msg { margin: 10px 0 0; color: #f3c35b; min-height: 1em; }
+footer .bugbtn { margin-top: 10px; }
 @media (max-width: 640px) { .tab .tname { display: none; } .tab.home .tname { display: inline; } }
 
 @media (max-width: 560px) {
@@ -146,6 +160,21 @@ body.inapp #home { display: none; }
 <body>
 <nav class="tabs" id="tabs" role="tablist" aria-label="Open apps" hidden></nav>
 <div id="frames" hidden></div>
+<dialog class="bugbox" id="bugbox" aria-labelledby="bugTitle">
+  <form method="dialog" id="bugForm">
+    <h2 id="bugTitle">Report a bug</h2>
+    <p class="small" style="margin:0">Tell us what went wrong. It goes straight to The DM's Perspective.</p>
+    <label for="bugApp">Which app?</label>
+    <select id="bugApp"></select>
+    <label for="bugWhat">What went wrong?</label>
+    <textarea id="bugWhat" maxlength="4000" required placeholder="For example: the Character Sheet shows 0 gold after I sold a sword."></textarea>
+    <label for="bugSteps">What were you doing just before? (optional)</label>
+    <textarea id="bugSteps" maxlength="4000" placeholder="The steps that got you there, if you remember them."></textarea>
+    <p class="small">Sent along with it: your Google email (so we can reply), the app, and your device and browser type. Nothing from your characters or notes.</p>
+    <p class="msg" id="bugMsg" role="status"></p>
+    <div class="row"><button type="button" id="bugCancel">Cancel</button><button type="submit" class="primary" id="bugSend">Send report</button></div>
+  </form>
+</dialog>
 <div id="home">
 
 
@@ -168,7 +197,7 @@ body.inapp #home { display: none; }
   <ul class="table" id="apps"></ul>
 </main>
 
-<footer>Sign in once here and every app uses it. <a href="/privacy.html">Privacy policy</a><br>Have an idea for a feature? <a href="https://discord.gg/myxeARFhnK" target="_blank" rel="noopener">Join our Discord</a> and suggest it there.</footer>
+<footer>Sign in once here and every app uses it. <a href="/privacy.html">Privacy policy</a><br>Have an idea for a feature? <a href="https://discord.gg/myxeARFhnK" target="_blank" rel="noopener">Join our Discord</a> and suggest it there.<br><button type="button" class="bugbtn" data-bug>Report a bug</button></footer>
 </div>
 
 <script type="module">
@@ -227,7 +256,8 @@ function drawTabs() {
   nav.hidden = !any; document.body.classList.toggle('tabbed', any);
   const on = tabState.active;
   nav.innerHTML = `<button type="button" class="tab home" role="tab" data-tab="" aria-selected="${!on}"><img class="mark" src="/launcher/icon-192.png" alt="" style="border-radius:50%"><span class="tname">Home</span></button>`
-    + tabState.open.map(id => { const a = appOf(id); return `<div class="tab" role="tab" tabindex="0" data-tab="${id}" aria-selected="${on === id}" title="${a.name}">${mark(id)}<span class="tname">${a.name}</span><span class="x" role="button" tabindex="0" data-close="${id}" aria-label="Close ${a.name}">×</span></div>`; }).join('');
+    + tabState.open.map(id => { const a = appOf(id); return `<div class="tab" role="tab" tabindex="0" data-tab="${id}" aria-selected="${on === id}" title="${a.name}">${mark(id)}<span class="tname">${a.name}</span><span class="x" role="button" tabindex="0" data-close="${id}" aria-label="Close ${a.name}">×</span></div>`; }).join('')
+    + `<button type="button" class="bug" data-bug title="Report a bug" aria-label="Report a bug">Report a bug</button>`;
 }
 function frameFor(id) {
   if (frames[id]) return frames[id];
@@ -258,6 +288,7 @@ function closeTab(id) {
 }
 document.getElementById('tabs').addEventListener('click', e => {
   const x = e.target.closest('[data-close]'); if (x) { e.stopPropagation(); closeTab(x.dataset.close); return; }
+  if (e.target.closest('[data-bug]')) return;
   const t = e.target.closest('[data-tab]'); if (t) showTab(t.dataset.tab);
 });
 document.getElementById('tabs').addEventListener('keydown', e => {
@@ -274,6 +305,40 @@ document.getElementById('apps').addEventListener('click', e => {
 // opened inside one of its own tabs somehow? Don't stack a launcher in a launcher
 if (window.top !== window) { try { if (window.top.location.origin === location.origin) document.getElementById('apps').innerHTML = ''; } catch { /* */ } }
 else showTab(tabState.open.includes(tabState.active) ? tabState.active : '');
+
+// ---------- report a bug: checked by the key keeper (signed-in people only) and emailed on ----------
+const bug = document.getElementById('bugbox');
+document.addEventListener('click', e => { if (e.target.closest('[data-bug]')) openBug(); });
+function openBug() {
+  const cur = tabState.active;
+  document.getElementById('bugApp').innerHTML = [['', 'The launcher'], ...APPS.filter(a => !a.soon).map(a => [a.id, a.name])]
+    .map(([id, n]) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${n}</option>`).join('');
+  document.getElementById('bugMsg').textContent = core.signedIn(NEED) ? '' : 'Sign in with Google on the Home tab first, so the report can be sent.';
+  document.getElementById('bugSend').disabled = false;
+  bug.showModal(); document.getElementById('bugWhat').focus();
+}
+document.getElementById('bugCancel').onclick = () => bug.close();
+document.getElementById('bugForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = document.getElementById('bugMsg'), send = document.getElementById('bugSend');
+  const what = document.getElementById('bugWhat').value.trim();
+  if (what.length < 5) { msg.textContent = 'Say a little about what went wrong.'; return; }
+  let pass = core.signedIn(NEED); if (!pass && core.refreshNow) pass = await core.refreshNow();
+  if (!pass?.value) { msg.textContent = 'Sign in with Google on the Home tab first, then send it.'; return; }
+  const id = document.getElementById('bugApp').value, a = appOf(id);
+  let page = ''; try { page = id && frames[id] ? frames[id].contentWindow.location.pathname : location.pathname; } catch { /* */ }
+  const info = { page, device: navigator.userAgent, screen: `${screen.width}×${screen.height}`, installed: matchMedia('(display-mode: standalone)').matches ? 'yes' : 'no',
+    role: core.tableRole?.() || 'none', edition: core.tableSettings?.().edition || '', online: navigator.onLine ? 'yes' : 'no', time: new Date().toString() };
+  send.disabled = true; msg.textContent = 'Sending…';
+  try {
+    const r = await fetch(core.KEEPER.replace(/\/$/, '') + '/report', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: pass.value, app: a?.name || 'Launcher', what, steps: document.getElementById('bugSteps').value.trim(), info }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `The report couldn't be sent (${r.status}).`);
+    document.getElementById('bugWhat').value = ''; document.getElementById('bugSteps').value = '';
+    msg.textContent = 'Sent. Thank you!'; setTimeout(() => bug.close(), 1200);
+  } catch (err) { msg.textContent = err.message || "The report couldn't be sent. Check your connection and try again."; send.disabled = false; }
+});
 
 // ---------- one sign-in for every app ----------
 const NEED = [core.SCOPES.appdata, core.SCOPES.file];
