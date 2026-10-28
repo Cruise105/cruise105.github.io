@@ -111,9 +111,10 @@ export async function playerEmails(token, id = current()?.id) {
    tables/<id>/members/<uid>/sheets/<charId>  { file: Drive file id, name, at }   members/<uid>/lib: the Table Library's file
    Only the DM writes these; each player can read only their own. */
 /** DM: note sheets shared with players, by their email: [{ email, charId, file, name }], plus the Table Library's file. */
-export async function assignSheets(token, id, shares, lib = '') {
+export async function assignSheets(token, id, shares, lib = '', gone = []) {
   const c = await db(token);
   const ms = (await val(c, `tables/${id}/members`)) || {};
+  const drop = new Set(gone);
   const byEmail = new Map(Object.entries(ms).filter(([, m]) => m.status === 'approved' && m.email).map(([uid, m]) => [m.email.toLowerCase(), { uid, m }]));
   const patch = {}; let n = 0;
   for (const s of shares) {
@@ -122,6 +123,8 @@ export async function assignSheets(token, id, shares, lib = '') {
     if (!have || have.file !== s.file || have.name !== (s.name || '')) { patch[`${hit.uid}/sheets/${s.charId}`] = { file: s.file, name: s.name || '', at: Date.now() }; n++; }
     if (lib && hit.m.lib !== lib) { patch[`${hit.uid}/lib`] = lib; n++; }
   }
+  // characters the DM deleted: no player is offered them any more
+  if (drop.size) for (const [uid, m] of Object.entries(ms)) for (const charId of Object.keys(m?.sheets || {})) if (drop.has(charId)) { patch[`${uid}/sheets/${charId}`] = null; n++; }
   if (n) await c.D.update(c.ref(c.db, `tables/${id}/members`), patch);
   return n;
 }
