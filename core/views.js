@@ -48,6 +48,7 @@ export const AMMUNITION = ['Arrow', 'Crossbow bolt', 'Sling bullet', 'Blowgun ne
 export const ARMORS = [['Padded Armor', 'light'], ['Leather Armor', 'light'], ['Studded Leather Armor', 'light'], ['Hide Armor', 'medium'], ['Chain Shirt', 'medium'], ['Scale Mail', 'medium'],
   ['Breastplate', 'medium'], ['Half Plate Armor', 'medium'], ['Ring Mail', 'heavy'], ['Chain Mail', 'heavy'], ['Splint Armor', 'heavy'], ['Plate Armor', 'heavy']];
 export const DAMAGE_TYPES = ['acid', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'poison', 'psychic', 'radiant', 'thunder', 'bludgeoning', 'piercing', 'slashing'];
+const RANGED = ['Crossbow, light', 'Dart', 'Shortbow', 'Sling', 'Blowgun', 'Crossbow, hand', 'Crossbow, heavy', 'Longbow'];
 const SWORDS = ['Greatsword', 'Longsword', 'Rapier', 'Scimitar', 'Shortsword'], AXES = ['Battleaxe', 'Greataxe', 'Handaxe'];
 
 /**
@@ -67,19 +68,25 @@ export function itemChoices(item) {
       if (/\baxe/.test(spec)) names.push(...AXES);
       if (/ammunition/.test(spec)) names.push(...AMMUNITION);
       if (/slashing/.test(spec)) names = names.filter(n => WEAPONS.find(x => x[0] === n)?.[1] === 'slashing');
+      if (!names.length && /melee/.test(spec)) names = WEAPONS.map(x => x[0]).filter(n => !RANGED.includes(n)); // "Any Melee Weapon"
       out.options = names.length ? names : WEAPONS.map(x => x[0]);
     } else {
-      const s = spec.replace(/s$/, '');
-      out.fixed = [...WEAPONS.map(x => x[0]), ...AMMUNITION].find(n => n.toLowerCase() === s || n.toLowerCase() === spec) || '';
+      // one weapon ("longbow"), or a short list ("Glaive, Greatsword, Longsword, or Scimitar")
+      const all = [...WEAPONS.map(x => x[0]), ...AMMUNITION];
+      const parts = spec.split(/,|\bor\b/).map(x => x.trim().replace(/s$/, '')).filter(Boolean);
+      const found = all.filter(n => parts.some(p => n.toLowerCase() === p || n.toLowerCase() === `${p}s`));
+      if (found.length > 1) out.options = found; else out.fixed = found[0] || '';
     }
   } else if (a) {
     out.kind = 'armor';
     const spec = a[1].toLowerCase().trim(), open = !/\)/.test(t);
     if (/shield/.test(spec)) out.fixed = 'Shield';
     else if (/\b(light|medium|heavy)\b/.test(spec) || /^any/.test(spec)) {
-      // "Armor (light, medium, or heavy)" (sometimes cut short to "Armor (light")
-      const kinds = open && spec === 'light' || /^any/.test(spec) ? ['light', 'medium', 'heavy'] : ['light', 'medium', 'heavy'].filter(k => spec.includes(k));
-      out.options = ARMORS.filter(x => kinds.includes(x[1])).map(x => x[0]);
+      // "Armor (light, medium, or heavy)" (sometimes cut short to "Armor (light"); 2024: "Any Medium or Heavy, Except Hide Armor"
+      const named = ['light', 'medium', 'heavy'].filter(k => spec.includes(k));
+      const kinds = open && spec === 'light' || !named.length ? ['light', 'medium', 'heavy'] : named;
+      const except = (/except ([a-z ]+)/.exec(spec) || [])[1] || '';
+      out.options = ARMORS.filter(x => kinds.includes(x[1]) && !(except && x[0].toLowerCase().startsWith(except.trim().replace(/ armor$/, '')))).map(x => x[0]);
     } else out.fixed = ARMORS.map(x => x[0]).find(n => n.toLowerCase().startsWith(spec)) || '';
   }
   return out;
@@ -90,7 +97,7 @@ export const needsChoice = item => { const c = itemChoices(item); return c.optio
 export function choiceName(name, ch = {}) {
   let n = String(name || ''); const extra = [];
   if (ch.base) {
-    if (/^(weapon|armor|ammunition)(?=,)/i.test(n)) n = n.replace(/^(weapon|armor|ammunition)(?=,)/i, ch.base); // "Armor, +1" → "Chain Mail, +1"
+    if (/^(weapon|armor|ammunition)(?=,| \+)/i.test(n)) n = n.replace(/^(weapon|armor|ammunition)(?=,| \+)/i, ch.base); // "Armor, +1" → "Chain Mail, +1" (2024: "Weapon +1")
     else if (!n.toLowerCase().includes(ch.base.toLowerCase().replace(/ armor$/, ''))) extra.push(ch.base);
   }
   if (ch.dmg) extra.push(ch.dmg);

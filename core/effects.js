@@ -53,7 +53,7 @@ export function parseEffects(text) {
       }
       if (/ability checks/.test(what)) add({ k: 'check', on: 'all', v });
       if (/spell attack rolls?/.test(what)) add({ k: 'spellatk', v });
-      if (/attack and damage rolls/.test(what) && /this (?:magic )?weapon|with it\b|this weapon|made with (?:this|it)/.test(what)) { add({ k: 'atk', on: 'self', v }); add({ k: 'dmg', on: 'self', v }); }
+      if (/attack (?:rolls )?and damage rolls/.test(what) && /this (?:magic )?weapon|this piece of magic ammunition|with it\b|this weapon|made with (?:this|it)/.test(what)) { add({ k: 'atk', on: 'self', v }); add({ k: 'dmg', on: 'self', v }); }
       else if (/damage rolls on ranged attacks/.test(what)) add({ k: 'dmg', on: 'ranged', v });
       else if (/^attack rolls/.test(what)) add({ k: 'atk', on: 'all', v });
     }
