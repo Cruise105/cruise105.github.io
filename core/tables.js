@@ -5,6 +5,8 @@
 //   tables/<id>/members/<uid>     { email, name, status: 'pending'|'approved', code, at }
 //   tables/<id>/invites/<code>    { at }                                 the DM's invite links
 //   users/<uid>/tables/<id>       { role: 'dm'|'player', name, at }      each person's own list of tables
+//   tables/<id>/newsheets/<uid>/<charId>  { json, name, t }   a character a player made, waiting for the DM's app to
+//                                 save it in the DM's Drive (the DM owns it, and it's shared back to the player)
 // Anyone can create a table and is its DM. A player asks to join with an invite link and waits for the DM to
 // approve them. Only the DM can approve, remove or change anything; a player can only ask, or leave.
 //
@@ -123,6 +125,33 @@ export async function assignSheets(token, id, shares, lib = '') {
   if (n) await c.D.update(c.ref(c.db, `tables/${id}/members`), patch);
   return n;
 }
+/** Player: send a character you made to your DM, so it's kept in their Drive and shared back to you. */
+export async function sendSheet(token, id, sheet) {
+  const c = await db(token);
+  const json = JSON.stringify(sheet);
+  if (json.length > 4500000) throw new Error('This sheet is too big to send (its pictures, most likely). Use smaller pictures and try again.');
+  await c.set(c.ref(c.db, `tables/${id}/newsheets/${me.uid}/${sheet.id}`), { json, name: String(sheet.name || '').slice(0, 100), t: Date.now() });
+}
+/** Player: the characters you've sent that your DM's app hasn't picked up yet (their ids). */
+export async function sentSheets(token, id = current()?.id) {
+  const c = await db(token);
+  return Object.keys((await val(c, `tables/${id}/newsheets/${me.uid}`)) || {});
+}
+/** DM: characters your players sent, with each player's email from their place at the table (not from the sheet). */
+export async function incomingSheets(token, id = current()?.id) {
+  const c = await db(token);
+  const all = (await val(c, `tables/${id}/newsheets`)) || {};
+  if (!Object.keys(all).length) return [];
+  const ms = (await val(c, `tables/${id}/members`)) || {};
+  const out = [];
+  for (const [uid, list] of Object.entries(all)) for (const [charId, x] of Object.entries(list || {})) {
+    const m = ms[uid];
+    out.push({ uid, charId, json: x.json, name: x.name || '', email: m?.status === 'approved' ? m.email || '' : '', player: m?.name || '' });
+  }
+  return out;
+}
+/** DM: done with a player's sent character (saved, or not from an approved player). */
+export async function clearIncoming(token, id, uid, charId) { const c = await db(token); await c.set(c.ref(c.db, `tables/${id}/newsheets/${uid}/${charId}`), null); }
 /** Player: the sheets your DM shared with you at this table, and the Table Library: { sheets: [{ charId, file, name }], lib } */
 export async function mySheets(token, id = current()?.id) {
   const c = await db(token);
